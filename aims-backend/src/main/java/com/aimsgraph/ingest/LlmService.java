@@ -1,0 +1,546 @@
+package com.aimsgraph.ingest;
+
+import com.aimsgraph.domain.workspace.WorkspaceService;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.time.LocalDate;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class LlmService {
+
+    @org.springframework.beans.factory.annotation.Value("${llm.api-key:demo}")
+    private String defaultApiKey;
+
+    @org.springframework.beans.factory.annotation.Value("${wiki.base.dir:workspaces}")
+    private String wikiBaseDir;
+
+    private final WorkspaceService workspaceService;
+    private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
+
+    private String getApiKey(String workspaceId) {
+        String key = System.getenv("OPENAI_API_KEY");
+        if (key != null && !key.isEmpty()) return key;
+        return defaultApiKey;
+    }
+
+    private ChatLanguageModel getOrCreateModel(String workspaceId) {
+        return modelCache.computeIfAbsent(workspaceId, id -> {
+            String apiKey = getApiKey(id);
+            log.info("Initializing OpenAiChatModel (gpt-4o-mini) for workspace: {}", id);
+            return OpenAiChatModel.builder()
+                    .apiKey(apiKey)
+                    .modelName("gpt-4o-mini")
+                    .temperature(0.2)
+                    .build();
+        });
+    }
+
+    // ---------------------------------------------------------
+    // TEXT INGESTION PIPELINE (IngestionWorker)
+    // ---------------------------------------------------------
+    public List<ExtractedConcept> extractKnowledge(String eventId, String content, String workspaceId) {
+        log.info("Extracting knowledge graph for text in workspace: {}", workspaceId);
+        
+        ChatLanguageModel model = getOrCreateModel(workspaceId);
+
+        String prompt = "You are a Second Brain Zettelkasten assistant.\n" +
+                "Analyze the following text and extract multiple atomic concepts or entities.\n" +
+                "You MUST output ONLY a valid JSON Array. Do not use Markdown fences like ```json.\n" +
+                "Each object in the array MUST have the following keys:\n" +
+                "  \"name\": string (english slug with hyphens, e.g. 'llm-wiki')\n" +
+                "  \"title\": string (korean title)\n" +
+                "  \"type\": string ('concept' or 'entity')\n" +
+                "  \"tags\": array of strings\n" +
+                "  \"aliases\": array of strings\n" +
+                "  \"summary\": string (one line summary in korean)\n" +
+                "  \"linkedConcepts\": array of objects, where each object MUST have 'name' (string) and 'type' (string, MUST BE ONE OF: EXTENDS, CONTRADICTS, DEPENDS_ON, EXPLAINS, RELATED_TO)\n\n" +
+                "Text to analyze:\n" + content;
+
+        String response = model.generate(prompt);
+        response = response.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
+        
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(response, new TypeReference<List<ExtractedConcept>>() {});
+        } catch (Exception e) {
+            log.error("Failed to parse LLM response into concepts", e);
+            throw new RuntimeException("Failed to parse concepts from LLM", e);
+        }
+    }
+
+    // ---------------------------------------------------------
+    // FILE INGESTION PIPELINE (AnalyzeController)
+    // ---------------------------------------------------------
+    public Map<String, Object> analyzeFilesWithOpenAI(org.springframework.web.multipart.MultipartFile[] files, String workspaceId) throws Exception {
+        if (getApiKey(workspaceId) == null || getApiKey(workspaceId).isEmpty() || getApiKey(workspaceId).equals("demo")) {
+            throw new RuntimeException("OpenAI API Key is not configured.");
+        }
+
+        // === 1단계: 파일 업로드 ===
+        java.util.List<String> fileIds = new java.util.ArrayList<>();
+        StringBuilder rawSourceBuilder = new StringBuilder();
+        for (org.springframework.web.multipart.MultipartFile file : files) {
+            if (!file.isEmpty()) {
+                String fileId = uploadFileToOpenAI(file, workspaceId);
+                fileIds.add(fileId);
+                log.info("File uploaded: {} → fileId={}", file.getOriginalFilename(), fileId);
+                
+                rawSourceBuilder.append("--- File: ").append(file.getOriginalFilename()).append(" ---\n");
+                rawSourceBuilder.append(new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8)).append("\n\n");
+            }
+        }
+
+        if (fileIds.isEmpty()) {
+            throw new RuntimeException("업로드된 파일이 모두 비어있습니다.");
+        }
+        
+        String rawSourceText = rawSourceBuilder.toString();
+
+        // === 2단계: 파일 분석하여 그래프(Nodes, Links) 추출 ===
+        String analysisResult = callResponsesAPI(fileIds, workspaceId);
+        log.info("Analysis complete for {} file(s). Parsing graph data...", fileIds.size());
+
+        String cleaned = analysisResult.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> graphData = mapper.readValue(cleaned, new TypeReference<Map<String, Object>>() {});
+        
+        // === 3단계: 동기식 & 병렬 위키 생성 ===
+        // 여기서 블로킹되어 위키 파일이 100% 생성될 때까지 대기합니다.
+        generateWikiPages(graphData, rawSourceText, workspaceId);
+        
+        // 4단계: 클라이언트로 그래프 리턴 (이 시점에는 .md 파일이 모두 디스크에 존재함)
+        return graphData;
+    }
+
+    private String uploadFileToOpenAI(org.springframework.web.multipart.MultipartFile file, String workspaceId) throws Exception {
+        String boundary = "----FormBoundary" + java.util.UUID.randomUUID().toString().replace("-", "");
+        byte[] fileBytes = file.getBytes();
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document";
+
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        baos.write(("--" + boundary + "\r\n").getBytes());
+        baos.write("Content-Disposition: form-data; name=\"purpose\"\r\n\r\n".getBytes());
+        baos.write("user_data\r\n".getBytes());
+        baos.write(("--" + boundary + "\r\n").getBytes());
+        baos.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n").getBytes());
+        baos.write(("Content-Type: " + (file.getContentType() != null ? file.getContentType() : "application/octet-stream") + "\r\n\r\n").getBytes());
+        baos.write(fileBytes);
+        baos.write(("\r\n--" + boundary + "--\r\n").getBytes());
+        byte[] bodyBytes = baos.toByteArray();
+
+        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create("https://api.openai.com/v1/files"))
+                .header("Authorization", "Bearer " + getApiKey(workspaceId))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(bodyBytes))
+                .build();
+
+        java.net.http.HttpResponse<String> resp = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> respMap = mapper.readValue(resp.body(), new TypeReference<Map<String, Object>>() {});
+        
+        if (respMap.get("error") != null) {
+            throw new RuntimeException("OpenAI file upload failed: " + respMap.get("error"));
+        }
+        return (String) respMap.get("id");
+    }
+
+    private String callResponsesAPI(java.util.List<String> fileIds, String workspaceId) throws Exception {
+        String systemPrompt = "You are a structured data architect specializing in Zettelkasten-style Second Brain systems. "
+                + "Your sole job is to read the given document(s), identify their core knowledge structure, "
+                + "and output a single strictly validated JSON knowledge graph that UNIFIES all documents. "
+                + "You never hallucinate IDs. You never output anything other than valid JSON.";
+
+        String userPrompt = "Analyze the attached document(s) and build a single UNIFIED knowledge graph.\n\n"
+                + "Return ONLY a single valid JSON object.\n"
+                + "Example structure:\n"
+                + "{\"nodes\":[{\"id\":\"english-slug\",\"name\":\"Korean Name\",\"type\":\"concept\",\"summary\":\"One sentence summary in Korean\",\"val\":5}],"
+                + "\"links\":[{\"source\":\"node-id-a\",\"target\":\"node-id-b\",\"label\":\"RELATED_TO\"}]}\n";
+
+        ObjectMapper mapper = new ObjectMapper();
+        List<Map<String, Object>> contentArray = new java.util.ArrayList<>();
+        for (String fid : fileIds) {
+            contentArray.add(Map.of("type", "input_file", "file_id", fid));
+        }
+        contentArray.add(Map.of("type", "input_text", "text", userPrompt));
+
+        Map<String, Object> requestBody = Map.of(
+                "model", "gpt-4o-mini",
+                "instructions", systemPrompt,
+                "input", java.util.List.of(Map.of("role", "user", "content", contentArray))
+        );
+
+        String jsonBody = mapper.writeValueAsString(requestBody);
+        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create("https://api.openai.com/v1/responses"))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + getApiKey(workspaceId))
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        java.net.http.HttpResponse<String> resp = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+        Map<String, Object> respMap = mapper.readValue(resp.body(), new TypeReference<Map<String, Object>>() {});
+
+        if (respMap.get("error") != null) {
+            throw new RuntimeException("OpenAI Responses API error: " + respMap.get("error"));
+        }
+
+        List<Map<String, Object>> output = (List<Map<String, Object>>) respMap.get("output");
+        if (output != null) {
+            for (Map<String, Object> item : output) {
+                if ("message".equals(item.get("type"))) {
+                    List<Map<String, Object>> content = (List<Map<String, Object>>) item.get("content");
+                    if (content != null) {
+                        for (Map<String, Object> block : content) {
+                            if ("output_text".equals(block.get("type"))) {
+                                return (String) block.get("text");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        throw new RuntimeException("No text output found in Responses API response");
+    }
+
+    // ---------------------------------------------------------
+    // PARALLEL WIKI GENERATION
+    // ---------------------------------------------------------
+    public void generateWikiPages(Map<String, Object> graphData, String rawSourceText, String workspaceId) {
+        java.util.List<Map<String, Object>> nodes = (java.util.List<Map<String, Object>>) graphData.get("nodes");
+        if (nodes == null || nodes.isEmpty()) return;
+        
+        log.info("Starting synchronous parallel wiki generation for {} nodes...", nodes.size());
+        try {
+            java.nio.file.Path wikiDir = java.nio.file.Paths.get(wikiBaseDir, workspaceId, "wiki", "concepts");
+            java.nio.file.Files.createDirectories(wikiDir);
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            String systemPrompt = "You are a specialized agent for writing structured Markdown Wiki pages for a Zettelkasten-style Second Brain system.\n\n"
+                    + "## Output Rules\n"
+                    + "- ALL content (title, summary, body) MUST be written in Korean.\n"
+                    + "- Cross-references to other concepts MUST use `[[Concept Name]]` syntax.\n"
+                    + "- The `id` field MUST be an english slug with hyphens (e.g. `event-driven-architecture`).\n\n"
+                    + "## Quality Standards\n"
+                    + "The wiki page `content` field MUST include:\n"
+                    + "1. **정의**: 개념 명확 서술\n"
+                    + "2. **핵심 구성 요소**: 구조화된 설명\n"
+                    + "3. **동작 원리**: 단계별 프로세스\n"
+                    + "4. **장점과 트레이드오프**: 한계 포함 균형 서술\n"
+                    + "5. **실전 적용 사례**: 코드나 시나리오\n\n"
+                    + "## Format & Quality\n"
+                    + "- Use markdown elements such as tables and bullet points to structure the document precisely and beautifully.\n"
+                    + "## Summary 작성 규칙\n"
+                    + "- summary 필드는 30~80자 사이의 한 문장으로 압축.\n";
+
+            Map<String, Object> responseFormat = Map.of(
+                "type", "json_schema",
+                "json_schema", Map.of(
+                    "name", "wiki_page",
+                    "strict", true,
+                    "schema", Map.of(
+                        "type", "object",
+                        "properties", Map.of(
+                            "id", Map.of("type", "string"),
+                            "title", Map.of("type", "string"),
+                            "type", Map.of("type", "string"),
+                            "summary", Map.of("type", "string"),
+                            "tags", Map.of("type", "array", "items", Map.of("type", "string")),
+                            "aliases", Map.of("type", "array", "items", Map.of("type", "string")),
+                            "content", Map.of("type", "string"),
+                            "relatedConcepts", Map.of("type", "array", "items", Map.of("type", "string"))
+                        ),
+                        "required", List.of("id", "title", "type", "summary", "tags", "aliases", "content", "relatedConcepts"),
+                        "additionalProperties", false
+                    )
+                )
+            );
+
+            // API Rate Limiting 보호를 위해 동시 실행 10개로 제한
+            java.util.concurrent.Semaphore rateLimiter = new java.util.concurrent.Semaphore(10);
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+
+            try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+                
+                for (Map<String, Object> node : nodes) {
+                    futures.add(executor.submit(() -> {
+                        try {
+                            rateLimiter.acquire();
+                            try {
+                                String nodeJson = mapper.writeValueAsString(node);
+                                String userPrompt = "Here is the ORIGINAL SOURCE TEXT provided by the user:\n"
+                                        + "==============================\n"
+                                        + rawSourceText + "\n"
+                                        + "==============================\n\n"
+                                        + "Based STRICTLY on the source text above, generate a detailed, high-quality wiki page for THIS SPECIFIC concept:\n"
+                                        + nodeJson + "\n\n"
+                                        + "Focus entirely on this one concept to maximize depth and accuracy. "
+                                        + "DO NOT hallucinate outside knowledge. Use only facts present in the ORIGINAL SOURCE TEXT.";
+
+                                java.util.List<Map<String, Object>> messages = new java.util.ArrayList<>();
+                                messages.add(Map.of("role", "system", "content", systemPrompt));
+                                messages.add(Map.of("role", "user", "content", userPrompt));
+
+                                Map<String, Object> requestBody = Map.of(
+                                        "model", "gpt-4o-mini",
+                                        "messages", messages,
+                                        "response_format", responseFormat
+                                );
+
+                                String jsonBody = mapper.writeValueAsString(requestBody);
+                                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                                        .uri(java.net.URI.create("https://api.openai.com/v1/chat/completions"))
+                                        .header("Content-Type", "application/json")
+                                        .header("Authorization", "Bearer " + getApiKey(workspaceId))
+                                        .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                                        .build();
+
+                                java.net.http.HttpResponse<String> resp = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+                                Map<String, Object> respMap = mapper.readValue(resp.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                                
+                                if (respMap.get("error") != null) {
+                                    log.error("Wiki generation failed for node {}: {}", node.get("name"), respMap.get("error"));
+                                    return;
+                                }
+
+                                String outputText = "";
+                                java.util.List<Map<String, Object>> choices = (java.util.List<Map<String, Object>>) respMap.get("choices");
+                                if (choices != null && !choices.isEmpty()) {
+                                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                                    if (message != null) {
+                                        outputText = (String) message.get("content");
+                                    }
+                                }
+
+                                String cleaned = outputText.trim()
+                                        .replaceAll("^```json\\s*", "")
+                                        .replaceAll("^```\\s*", "")
+                                        .replaceAll("\\s*```$", "");
+
+                                StructuredWikiPage page = mapper.readValue(cleaned, StructuredWikiPage.class);
+
+                                if (page != null && page.id() != null && !page.id().isBlank()) {
+                                    StringBuilder sb = new StringBuilder();
+                                    sb.append("---\n");
+                                    sb.append("title: ").append(page.title() != null ? page.title() : "").append("\n");
+                                    sb.append("type: ").append(page.type() != null ? page.type() : "").append("\n");
+                                    sb.append("created_at: ").append(java.time.LocalDate.now().toString()).append("\n");
+                                    if (page.tags() != null && !page.tags().isEmpty()) {
+                                        sb.append("tags:\n");
+                                        for (String tag : page.tags()) {
+                                            sb.append("  - ").append(tag).append("\n");
+                                        }
+                                    }
+                                    if (page.aliases() != null && !page.aliases().isEmpty()) {
+                                        sb.append("aliases:\n");
+                                        for (String alias : page.aliases()) {
+                                            sb.append("  - ").append(alias).append("\n");
+                                        }
+                                    }
+                                    sb.append("---\n\n");
+                                    sb.append(page.content() != null ? page.content() : "").append("\n\n");
+                                    
+                                    if (page.relatedConcepts() != null && !page.relatedConcepts().isEmpty()) {
+                                        sb.append("## 관련 개념들\n");
+                                        for (String related : page.relatedConcepts()) {
+                                            sb.append("- [[").append(related).append("]]\n");
+                                        }
+                                    }
+
+                                    String filename = page.id().trim() + ".md";
+                                    java.nio.file.Files.writeString(wikiDir.resolve(filename), sb.toString());
+                                    log.info("Saved wiki page: {}", filename);
+                                }
+                            } finally {
+                                rateLimiter.release();
+                            }
+                        } catch (Exception innerE) {
+                            log.error("Error generating wiki for individual node", innerE);
+                        }
+                    }));
+                }
+                
+                // Wait for all virtual thread tasks to complete
+                for (var future : futures) {
+                    try {
+                        future.get();
+                    } catch (Exception e) {
+                        log.error("Error waiting for wiki generation task", e);
+                    }
+                }
+            }
+
+            log.info("Wiki generation completed successfully! Files saved to {}", wikiDir.toAbsolutePath());
+
+        } catch (Exception e) {
+            log.error("Error in generateWikiPages", e);
+        }
+    }
+
+    public record StructuredWikiPage(
+        String id,
+        String title,
+        String type,
+        String summary,
+        List<String> tags,
+        List<String> aliases,
+        String content,
+        List<String> relatedConcepts
+    ) {}
+
+    public String query(String workspaceId, String userQuery) {
+        log.info("Executing query for workspace: {}", workspaceId);
+        String apiKey = getApiKey(workspaceId);
+        if (apiKey == null || apiKey.isEmpty() || apiKey.equals("demo")) {
+            return "API Key is missing or invalid. Please check your settings.";
+        }
+
+        try {
+            List<java.io.File> allFiles = collectMarkdownFiles(workspaceId);
+            if (allFiles.isEmpty()) {
+                log.info("No wiki markdown files found. Falling back to direct query.");
+                return queryDirect(apiKey, userQuery);
+            }
+
+            StringBuilder fileListBuilder = new StringBuilder();
+            for (int i = 0; i < allFiles.size(); i++) {
+                fileListBuilder.append(i).append(": ").append(allFiles.get(i).getName()).append("\n");
+            }
+
+            String filterPrompt = "You are a context retrieval assistant.\n"
+                    + "We have a list of wiki files (Zettelkasten notes) in our system.\n"
+                    + "Based on the user query, select the top 3 to 5 most relevant files that can help answer the query.\n"
+                    + "Respond ONLY with a JSON array of integers representing the indices of the selected files (e.g., [0, 3, 5]).\n"
+                    + "Do not include any Markdown formatting (like ```json) or explanation.\n\n"
+                    + "User Query: " + userQuery + "\n\n"
+                    + "Available Files:\n" + fileListBuilder.toString();
+
+            ChatLanguageModel model = getOrCreateModel(workspaceId);
+            String filterResponse = model.generate(filterPrompt);
+            List<Integer> selectedIndices = parseIndices(filterResponse);
+
+            StringBuilder contextBuilder = new StringBuilder();
+            int count = 0;
+            for (int idx : selectedIndices) {
+                if (idx >= 0 && idx < allFiles.size()) {
+                    java.io.File file = allFiles.get(idx);
+                    try {
+                        String content = java.nio.file.Files.readString(file.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                        contextBuilder.append("--- Wiki Concept File: ").append(file.getName()).append(" ---\n");
+                        contextBuilder.append(content).append("\n\n");
+                        count++;
+                        if (count >= 5) {
+                            break;
+                        }
+                    } catch (Exception fe) {
+                        log.error("Failed to read wiki file: {}", file.getAbsolutePath(), fe);
+                    }
+                }
+            }
+
+            if (contextBuilder.length() > 0) {
+                String enrichedQuery = "You are a helpful assistant utilizing a Second Brain wiki database.\n"
+                        + "Answer the user's query using the following context collected from the user's second brain wiki. "
+                        + "If the context doesn't contain the answer, you can use your general knowledge but prioritize the wiki contents.\n\n"
+                        + "[Wiki Context]\n"
+                        + contextBuilder.toString()
+                        + "[User Query]\n"
+                        + userQuery;
+                return queryDirect(apiKey, enrichedQuery);
+            } else {
+                return queryDirect(apiKey, userQuery);
+            }
+        } catch (Exception e) {
+            log.error("Failed to query OpenAI with wiki context, falling back to direct query", e);
+            return queryDirect(apiKey, userQuery);
+        }
+    }
+
+    private List<java.io.File> collectMarkdownFiles(String workspaceId) {
+        List<java.io.File> mdFiles = new java.util.ArrayList<>();
+        String[] subDirs = {"concepts", "entities", "insights"};
+        for (String subDir : subDirs) {
+            java.nio.file.Path path = java.nio.file.Paths.get(wikiBaseDir, workspaceId, "wiki", subDir);
+            if (java.nio.file.Files.exists(path) && java.nio.file.Files.isDirectory(path)) {
+                java.io.File dir = path.toFile();
+                java.io.File[] files = dir.listFiles((dir1, name) -> name.toLowerCase().endsWith(".md"));
+                if (files != null) {
+                    for (java.io.File f : files) {
+                        mdFiles.add(f);
+                    }
+                }
+            }
+        }
+        return mdFiles;
+    }
+
+    private List<Integer> parseIndices(String response) {
+        List<Integer> indices = new java.util.ArrayList<>();
+        if (response == null) return indices;
+        
+        String cleaned = response.replaceAll("^```json\\s*", "")
+                                 .replaceAll("^```\\s*", "")
+                                 .replaceAll("\\s*```$", "")
+                                 .trim();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            List<Integer> parsed = mapper.readValue(cleaned, new TypeReference<List<Integer>>() {});
+            if (parsed != null) {
+                indices.addAll(parsed);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse indices from LLM response: {}", cleaned, e);
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\d+").matcher(cleaned);
+            while (m.find()) {
+                try {
+                    indices.add(Integer.parseInt(m.group()));
+                } catch (NumberFormatException nfe) {
+                    // ignore
+                }
+            }
+        }
+        return indices;
+    }
+
+    String queryDirect(String apiKey, String userQuery) {
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            String jsonBody = "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"" + userQuery.replace("\"", "\\\"").replace("\n", "\\n") + "\"}]}";
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("https://api.openai.com/v1/chat/completions"))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+            
+            java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> respMap = mapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) respMap.get("choices");
+            if (choices != null && !choices.isEmpty()) {
+                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                return (String) message.get("content");
+            }
+            return "Failed to get a response from AI.";
+        } catch (Exception e) {
+            log.error("Failed to query OpenAI directly", e);
+            return "Error calling AI API: " + e.getMessage();
+        }
+    }
+}
+

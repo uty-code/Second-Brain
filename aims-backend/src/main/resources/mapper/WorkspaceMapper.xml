@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aimsgraph.domain.workspace.mapper.WorkspaceMapper">
+
+    <insert id="insertWorkspace" parameterType="com.aimsgraph.domain.workspace.Workspace">
+        INSERT INTO Workspace (id, name, created_at)
+        VALUES (#{id}, #{name}, GETUTCDATE())
+    </insert>
+
+
+
+    <select id="findById" resultType="com.aimsgraph.domain.workspace.Workspace">
+        SELECT id, name, created_at as createdAt
+        FROM Workspace
+        WHERE id = #{id}
+    </select>
+</mapper>

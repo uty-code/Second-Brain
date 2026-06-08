@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aimsgraph.domain.source.RawSourceMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO RawSource (
+            workspace_id, source_uri, title, content_hash, source_type, status, created_at, updated_at
+        ) VALUES (
+            #{workspaceId}, #{sourceUri}, #{title}, #{contentHash}, #{sourceType}, #{status}, GETUTCDATE(), GETUTCDATE()
+        )
+    </insert>
+
+    <select id="findByWorkspaceIdAndUri" resultType="com.aimsgraph.domain.source.RawSource">
+        SELECT *
+        FROM RawSource
+        WHERE workspace_id = #{workspaceId} AND source_uri = #{sourceUri}
+    </select>
+
+</mapper>

@@ -1,0 +1,24 @@
+{
+  "pages": [
+    {
+      "id": "event-driven-architecture",
+      "title": "이벤트 기반 아키텍처",
+      "type": "concept",
+      "summary": "마이크로서비스 간 느슨한 결합(Loose Coupling)을 달성하기 위해, 상태 변화를 이벤트(Event)로 발행하고 구독자가 비동기적으로 반응하는 소프트웨어 설계 패턴이다.",
+      "tags": ["아키텍처", "마이크로서비스", "비동기", "Kafka", "이벤트"],
+      "aliases": ["EDA", "Event-Driven Architecture", "이벤트 드리븐"],
+      "content": "# 이벤트 기반 아키텍처\n\n## 정의\n\n**이벤트 기반 아키텍처(Event-Driven Architecture, EDA)**는 시스템의 구성 요소들이 **이벤트**의 생산, 감지, 소비를 중심으로 통신하는 소프트웨어 설계 패러다임이다. 전통적인 요청-응답(Request-Response) 모델과 달리, 이벤트 발행자(Producer)는 소비자(Consumer)의 존재를 알 필요가 없으며, 이를 통해 서비스 간 **느슨한 결합(Loose Coupling)**을 구조적으로 보장한다.\n\n## 핵심 구성 요소\n\n| 구성 요소 | 역할 | 예시 |\n|---|---|---|\n| **이벤트(Event)** | 시스템 내 상태 변화를 나타내는 불변 메시지 | `OrderCreated`, `UserSignedUp` |\n| **프로듀서(Producer)** | 이벤트를 생성하고 브로커에 발행하는 주체 | 주문 서비스, 결제 서비스 |\n| **브로커(Broker)** | 이벤트를 중계하고 라우팅하는 중앙 인프라 | [[Apache Kafka]], RabbitMQ |\n| **컨슈머(Consumer)** | 관심 있는 이벤트를 구독하여 비즈니스 로직을 실행하는 주체 | 알림 서비스, 분석 서비스 |\n\n## 동작 원리\n\n1. **이벤트 발생**: 도메인 객체의 상태가 변경되면, 해당 변경 사실을 담은 이벤트 메시지가 생성된다.\n2. **이벤트 발행**: 프로듀서가 이벤트 브로커(예: Kafka 토픽)에 이벤트를 비동기적으로 전송한다.\n3. **이벤트 라우팅**: 브로커가 등록된 컨슈머 그룹에게 이벤트를 분배한다.\n4. **이벤트 처리**: 각 컨슈머가 수신한 이벤트에 따라 독립적으로 후속 비즈니스 로직을 실행한다.\n\n## 장점과 트레이드오프\n\n### 장점\n- **확장성(Scalability)**: 컨슈머를 독립적으로 수평 확장할 수 있어, 부하 증가에 유연하게 대응 가능\n- **느슨한 결합**: 서비스 간 직접 호출이 없으므로, 한 서비스의 변경이 다른 서비스에 영향을 주지 않음\n- **이력 추적(Audit Trail)**: 모든 상태 변화가 이벤트로 기록되므로, [[이벤트 소싱]] 패턴과 결합 시 완전한 감사 로그 확보 가능\n\n### 트레이드오프\n- **최종 일관성(Eventual Consistency)**: 동기식 트랜잭션 대신 비동기 처리를 사용하므로, 데이터가 즉시 일관되지 않을 수 있음. 이를 보완하기 위해 [[트랜잭셔널 아웃박스 패턴]]이 자주 적용됨\n- **디버깅 복잡성**: 이벤트 흐름이 분산되어 있어 장애 추적이 어려우며, 분산 트레이싱 도구(Jaeger, Zipkin 등)가 사실상 필수\n- **이벤트 스키마 관리**: 이벤트 포맷의 하위 호환성(Backward Compatibility)을 유지하지 않으면 전체 시스템에 장애 전파 가능\n\n## 실전 적용 사례\n\n주문 처리 시스템에서 `OrderService`가 주문 생성 시 `OrderCreated` 이벤트를 Kafka로 발행하면:\n- `InventoryService`가 재고를 차감하고\n- `NotificationService`가 고객에게 확인 이메일을 발송하고\n- `AnalyticsService`가 매출 통계를 갱신한다.\n\n각 서비스는 서로의 존재를 모르며, 새로운 서비스(예: `FraudDetectionService`)를 추가할 때 기존 코드를 전혀 수정하지 않아도 된다.",
+      "relatedConcepts": ["트랜잭셔널 아웃박스 패턴", "Apache Kafka", "마이크로서비스", "이벤트 소싱", "CQRS"]
+    },
+    {
+      "id": "transactional-outbox-pattern",
+      "title": "트랜잭셔널 아웃박스 패턴",
+      "type": "concept",
+      "summary": "DB 트랜잭션과 메시지 발행의 원자성(Atomicity)을 보장하기 위해, 이벤트를 별도의 아웃박스 테이블에 기록한 뒤 비동기 폴링으로 메시지 브로커에 전달하는 신뢰성 패턴이다.",
+      "tags": ["아키텍처", "데이터 일관성", "이벤트", "마이크로서비스", "패턴"],
+      "aliases": ["Outbox Pattern", "아웃박스 패턴", "Transactional Outbox"],
+      "content": "# 트랜잭셔널 아웃박스 패턴\n\n## 정의\n\n**트랜잭셔널 아웃박스 패턴(Transactional Outbox Pattern)**은 [[이벤트 기반 아키텍처]]에서 빈번하게 발생하는 **이중 쓰기 문제(Dual Write Problem)**를 해결하기 위한 설계 패턴이다. 비즈니스 데이터의 변경과 이벤트 메시지의 발행을 **동일한 DB 트랜잭션** 안에서 처리하여 원자성을 보장한다.\n\n## 해결하는 문제\n\n마이크로서비스에서 DB를 업데이트한 뒤 Kafka 등의 메시지 브로커에 이벤트를 발행할 때, 두 작업 사이에 장애가 발생하면:\n- DB는 업데이트되었으나 이벤트는 발행되지 않는 **데이터 유실**, 또는\n- 이벤트는 발행되었으나 DB 변경이 롤백되는 **팬텀 이벤트**\n\n가 발생할 수 있다. 이것이 **이중 쓰기 문제**이며, 이를 근본적으로 방지하는 것이 아웃박스 패턴의 목적이다.\n\n## 동작 원리\n\n### 1단계: 트랜잭션 내 아웃박스 기록\n서비스가 비즈니스 로직을 수행할 때, 동일한 DB 트랜잭션 안에서:\n1. 비즈니스 테이블(예: `orders`)에 데이터를 INSERT/UPDATE\n2. 아웃박스 테이블(예: `outbox_events`)에 발행할 이벤트를 INSERT\n\n두 작업이 하나의 트랜잭션으로 묶이므로, 둘 다 성공하거나 둘 다 실패한다.\n\n### 2단계: 비동기 폴링 및 발행\n별도의 백그라운드 프로세스(Polling Publisher)가:\n1. `outbox_events` 테이블에서 미발행 레코드를 주기적으로 조회\n2. 해당 이벤트를 [[Apache Kafka]] 등의 브로커에 발행\n3. 발행 성공 후 레코드를 삭제하거나 `published = true`로 마킹\n\n### 아웃박스 테이블 스키마 예시\n\n```sql\nCREATE TABLE outbox_events (\n    id            BIGINT PRIMARY KEY IDENTITY,\n    aggregate_type VARCHAR(255) NOT NULL,  -- 예: 'Order'\n    aggregate_id   VARCHAR(255) NOT NULL,  -- 예: 주문 ID\n    event_type     VARCHAR(255) NOT NULL,  -- 예: 'OrderCreated'\n    payload        NVARCHAR(MAX) NOT NULL, -- JSON 직렬화된 이벤트 본문\n    created_at     DATETIME2 DEFAULT GETDATE(),\n    published      BIT DEFAULT 0\n);\n```\n\n## 구현 시 주의사항\n\n- **멱등성(Idempotency) 보장**: 폴링 과정에서 동일 이벤트가 중복 발행될 수 있으므로, 컨슈머 측에서 반드시 멱등한 처리를 구현해야 한다.\n- **폴링 주기와 지연**: 폴링 간격이 길면 이벤트 전달이 지연되고, 짧으면 DB 부하가 증가한다. 프로젝트 요구사항에 맞는 균형점을 설정해야 한다.\n- **CDC 대안**: 폴링 대신 Debezium 등의 [[CDC]](Change Data Capture) 도구를 사용하면 DB 로그를 직접 감시하여 거의 실시간으로 이벤트를 캡처할 수 있다.",
+      "relatedConcepts": ["이벤트 기반 아키텍처", "Apache Kafka", "마이크로서비스", "CDC", "CQRS"]
+    }
+  ]
+}

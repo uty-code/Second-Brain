@@ -1,0 +1,5 @@
+repositories { mavenCentral(); maven { url 'https://repo.spring.io/milestone' } }
+configurations { testDeps }
+dependencies {
+    testDeps 'org.springframework.ai:spring-ai-mcp:1.0.0-M6'
+}

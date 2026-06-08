@@ -1,0 +1,65 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.aimsgraph'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '21'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    
+    // DB & MyBatis
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
+    runtimeOnly 'com.microsoft.sqlserver:mssql-jdbc'
+    
+    // Neo4j
+    implementation 'org.springframework.boot:spring-boot-starter-data-neo4j'
+    
+    // Redis (Redisson)
+    implementation 'org.redisson:redisson-spring-boot-starter:3.27.1'
+    
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+    
+    // Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+    
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    // LangChain4j
+    implementation 'dev.langchain4j:langchain4j:0.30.0'
+    implementation 'dev.langchain4j:langchain4j-open-ai:0.30.0'
+    
+    // Spring AI MCP Server
+    implementation 'org.springframework.ai:spring-ai-mcp-server-webmvc-spring-boot-starter:1.0.0-M6'
+
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mssqlserver'
+    testImplementation 'org.testcontainers:neo4j'
+    testImplementation 'org.testcontainers:kafka'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    def sanitizedPath = System.getenv("PATH").split(";").collect { it.trim() }.join(";")
+    environment "PATH", sanitizedPath
+}

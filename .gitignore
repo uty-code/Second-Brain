@@ -1,0 +1,34 @@
+# Build and OS directories
+node_modules/
+.next/
+dist/
+build/
+out/
+target/
+.gradle/
+bin/
+
+# IDEs and environments
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Logs and databases
+*.log
+logs/
+*.sqlite
+*.db
+
+# Antigravity artifacts
+brain/
+.gemini/
+
+# Local workspace directories and zip files
+workspaces/
+aims-backend/workspaces/
+aims-backend/target/
+tenant-1/
+*.zip

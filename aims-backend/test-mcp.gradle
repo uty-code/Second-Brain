@@ -1,0 +1,8 @@
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+}
+configurations { testDeps }
+dependencies {
+    testDeps 'io.modelcontextprotocol.sdk:mcp-spring-boot-starter:0.1.0'
+}
