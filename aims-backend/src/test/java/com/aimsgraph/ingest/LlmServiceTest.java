@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -27,6 +28,9 @@ public class LlmServiceTest {
 
     @Mock
     private ChatLanguageModel chatLanguageModel;
+
+    @Mock
+    private Neo4jClient neo4jClient;
 
     @InjectMocks
     private LlmService llmService;
@@ -107,6 +111,42 @@ public class LlmServiceTest {
         String capturedQuery = queryCaptor.getValue();
         org.junit.jupiter.api.Assertions.assertTrue(capturedQuery.contains("Harness Framework is a software deployment framework."));
         org.junit.jupiter.api.Assertions.assertTrue(capturedQuery.contains("Explain Harness Framework"));
+    }
+
+    @Test
+    void saveGraphToNeo4j_shouldExecuteMergeQueries() {
+        // Given
+        Map<String, Object> node = Map.of(
+            "id", "concept-1",
+            "name", "Concept 1"
+        );
+        Map<String, Object> link = Map.of(
+            "source", "concept-1",
+            "target", "concept-2",
+            "label", "RELATES_TO"
+        );
+        Map<String, Object> graphData = Map.of(
+            "nodes", List.of(node),
+            "links", List.of(link)
+        );
+
+        org.springframework.data.neo4j.core.Neo4jClient.UnboundRunnableSpec unboundRunnableSpec =
+                org.mockito.Mockito.mock(org.springframework.data.neo4j.core.Neo4jClient.UnboundRunnableSpec.class);
+        org.springframework.data.neo4j.core.Neo4jClient.RunnableSpec runnableSpec =
+                org.mockito.Mockito.mock(org.springframework.data.neo4j.core.Neo4jClient.RunnableSpec.class);
+        org.springframework.data.neo4j.core.Neo4jClient.OngoingBindSpec ongoingBindSpec =
+                org.mockito.Mockito.mock(org.springframework.data.neo4j.core.Neo4jClient.OngoingBindSpec.class);
+
+        when(neo4jClient.query(anyString())).thenReturn(unboundRunnableSpec);
+        when(unboundRunnableSpec.bind(org.mockito.ArgumentMatchers.any())).thenReturn(ongoingBindSpec);
+        when(runnableSpec.bind(org.mockito.ArgumentMatchers.any())).thenReturn(ongoingBindSpec);
+        when(ongoingBindSpec.to(anyString())).thenReturn(runnableSpec);
+
+        // When
+        llmService.saveGraphToNeo4j(graphData, "tenant-1");
+
+        // Then
+        org.mockito.Mockito.verify(neo4jClient, org.mockito.Mockito.atLeast(2)).query(anyString());
     }
 }
 

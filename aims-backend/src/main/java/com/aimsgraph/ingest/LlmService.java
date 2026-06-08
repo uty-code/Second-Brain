@@ -6,6 +6,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.data.neo4j.core.Neo4jClient;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +27,7 @@ public class LlmService {
     private String wikiBaseDir;
 
     private final WorkspaceService workspaceService;
+    private final Neo4jClient neo4jClient;
     private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
 
     private String getApiKey(String workspaceId) {
@@ -118,6 +120,9 @@ public class LlmService {
         // === 3단계: 동기식 & 병렬 위키 생성 ===
         // 여기서 블로킹되어 위키 파일이 100% 생성될 때까지 대기합니다.
         generateWikiPages(graphData, rawSourceText, workspaceId);
+        
+        // Neo4j에 그래프(노드와 링크) 저장
+        saveGraphToNeo4j(graphData, workspaceId);
         
         // 4단계: 클라이언트로 그래프 리턴 (이 시점에는 .md 파일이 모두 디스크에 존재함)
         return graphData;
@@ -389,6 +394,55 @@ public class LlmService {
 
         } catch (Exception e) {
             log.error("Error in generateWikiPages", e);
+        }
+    }
+
+    void saveGraphToNeo4j(Map<String, Object> graphData, String workspaceId) {
+        if (graphData == null) return;
+        
+        List<Map<String, Object>> nodes = (List<Map<String, Object>>) graphData.get("nodes");
+        if (nodes != null) {
+            for (Map<String, Object> node : nodes) {
+                String id = (String) node.get("id");
+                if (id == null || id.isBlank()) continue;
+                String title = (String) node.get("name");
+                if (title == null) title = id;
+
+                String createNodeCypher = "MERGE (c:Concept {name: $name, workspaceId: $workspaceId}) " +
+                        "ON CREATE SET c.title = $title, c.createdAt = datetime() " +
+                        "ON MATCH SET c.title = $title, c.updatedAt = datetime()";
+                neo4jClient.query(createNodeCypher)
+                           .bind(id).to("name")
+                           .bind(workspaceId).to("workspaceId")
+                           .bind(title).to("title")
+                           .run();
+            }
+        }
+
+        List<Map<String, Object>> links = (List<Map<String, Object>>) graphData.get("links");
+        if (links != null) {
+            for (Map<String, Object> link : links) {
+                String source = (String) link.get("source");
+                String target = (String) link.get("target");
+                if (source == null || source.isBlank() || target == null || target.isBlank()) continue;
+
+                String relType = (String) link.get("label");
+                if (relType == null || relType.isBlank()) {
+                    relType = "RELATES_TO";
+                } else {
+                    relType = relType.toUpperCase().replaceAll("[^A-Z_]", "");
+                    if (relType.isEmpty()) relType = "RELATES_TO";
+                }
+
+                String linkCypher = "MERGE (c:Concept {name: $name, workspaceId: $workspaceId}) " +
+                                    "MERGE (l:Concept {name: $link, workspaceId: $workspaceId}) " +
+                                    "MERGE (c)-[:" + relType + "]->(l)";
+                neo4jClient.query(linkCypher)
+                           .bind(source).to("name")
+                           .bind(target).to("link")
+                           .bind(workspaceId).to("workspaceId")
+                           .run();
+            }
         }
     }
 

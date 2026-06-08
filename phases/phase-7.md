@@ -1,6 +1,6 @@
 # Phase 7 지시서: 백엔드 기능 고도화 및 LLM Wiki 패턴 완벽 적용
 > **Status: [완료됨]**
-> - **히스토리**: RAG 전면 폐기 및 순수 에이전틱 그래프 탐색(`get_node_context`) 구현, Rate Limiting 방어벽 적용, 실시간 푸시 알림(SSE) 구축, ZIP Export API 개발, 다변화된 동적 온톨로지 엣지 주입 기능 완벽 적용.
+> - **히스토리**: RAG 전면 폐기 및 순수 에이전틱 그래프 탐색(`get_node_context`) 구현, Rate Limiting 방어벽 적용, 실시간 푸시 알림(SSE) 구축, ZIP Export API 개발, 다변화된 동적 온톨로지 엣지 주입 기능 완벽 적용, `LlmService.analyzeFilesWithOpenAI` 메서드에 `Neo4jClient`를 연동하여 직접 업로드 시에도 추출된 지식 그래프(노드/링크)가 Neo4j에 동기적으로 저장 및 유지되도록 고도화.
 
 
 ## 1. 개요 및 목표
