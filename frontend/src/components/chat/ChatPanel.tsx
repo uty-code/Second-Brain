@@ -7,7 +7,7 @@ import { useAppStore, Message } from "@/store/useAppStore";
 import { MarkdownViewer } from "@/components/viewer/MarkdownViewer";
 
 export function ChatPanel() {
-  const { chatMessages: messages, setChatMessages: setMessages, currentWorkspaceId, setSelectedNodeId } = useAppStore();
+  const { chatMessages: messages, setChatMessages: setMessages, currentWorkspaceId, selectedModel, setSelectedNodeId } = useAppStore();
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ export function ChatPanel() {
     setIsSubmitting(true);
 
     try {
-      const response = await sendQuery(userMessage.content, currentWorkspaceId);
+      const response = await sendQuery(userMessage.content, currentWorkspaceId, false, selectedModel);
       
       setMessages((prev) => 
         prev.map((msg) => 

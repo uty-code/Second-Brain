@@ -27,7 +27,8 @@ export function Sidebar() {
     fetchWorkspaces().then((list) => {
       if (list && list.length > 0) {
         setWorkspaces(list);
-        if (!list.includes(currentWorkspaceId)) {
+        const currentId = useAppStore.getState().currentWorkspaceId;
+        if (!list.includes(currentId)) {
           setCurrentWorkspaceId(list[0]);
         }
       }

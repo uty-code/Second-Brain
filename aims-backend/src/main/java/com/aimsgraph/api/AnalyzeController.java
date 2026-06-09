@@ -1,6 +1,7 @@
 package com.aimsgraph.api;
 
 import com.aimsgraph.ingest.LlmService;
+import com.aimsgraph.ingest.NotionIngestService;
 import com.aimsgraph.auth.JwtInterceptor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import java.util.Map;
 public class AnalyzeController {
 
     private final LlmService llmService;
+    private final NotionIngestService notionIngestService;
 
     /**
      * 여러 파일을 업로드하면 OpenAI Responses API를 통해 지식을 추출하고
@@ -27,7 +29,9 @@ public class AnalyzeController {
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> analyzeFiles(
-            @RequestParam("files") MultipartFile[] files) {
+            @RequestParam("files") MultipartFile[] files,
+            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName,
+            @RequestHeader(value = "X-DeepSeek-Key", required = false) String deepseekKey) {
         
         log.info("Received {} file(s) for analysis", files.length);
 
@@ -46,7 +50,7 @@ public class AnalyzeController {
         }
 
         try {
-            Map<String, Object> graphData = llmService.analyzeFilesWithOpenAI(files, workspaceId);
+            Map<String, Object> graphData = llmService.analyzeFilesWithOpenAI(files, workspaceId, modelName, deepseekKey);
             return ResponseEntity.ok(graphData);
         } catch (Exception e) {
             log.error("File analysis failed", e);
@@ -54,4 +58,53 @@ public class AnalyzeController {
                     .body(Map.of("error", "ANALYSIS_FAILED", "message", e.getMessage()));
         }
     }
+
+    @PostMapping(value = "/notion", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> analyzeNotion(
+            @RequestBody NotionRequestDto request,
+            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName,
+            @RequestHeader(value = "X-DeepSeek-Key", required = false) String deepseekKey) {
+        log.info("Received Notion import request for pageId: {}", request.pageId());
+
+        if (request.pageId() == null || request.pageId().isBlank() || request.apiKey() == null || request.apiKey().isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "BAD_REQUEST", "message", "pageId and apiKey are required."));
+        }
+
+        String workspaceId = "default-workspace";
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            String attrWorkspaceId = (String) attrs.getAttribute(JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+            if (attrWorkspaceId != null && !attrWorkspaceId.isEmpty()) {
+                workspaceId = attrWorkspaceId;
+            }
+        }
+
+        try {
+            String rawText = notionIngestService.fetchNotionPageText(request.pageId(), request.apiKey());
+            if (rawText.isBlank()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "NO_TEXT", "message", "No text could be extracted from the provided Notion page."));
+            }
+            Map<String, Object> graphData = llmService.analyzeTextWithOpenAI(rawText, workspaceId, modelName, deepseekKey);
+            return ResponseEntity.ok(graphData);
+        } catch (Exception e) {
+            log.error("Notion analysis failed", e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "NOTION_ANALYSIS_FAILED", "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/notion/verify", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> verifyNotionToken(@RequestBody VerifyRequestDto request) {
+        log.info("Received Notion token verify request");
+        if (request.apiKey() == null || request.apiKey().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("valid", false, "message", "API Key is required"));
+        }
+        boolean isValid = notionIngestService.verifyToken(request.apiKey());
+        return ResponseEntity.ok(Map.of("valid", isValid));
+    }
+
+    public record NotionRequestDto(String apiKey, String pageId) {}
+    public record VerifyRequestDto(String apiKey) {}
 }

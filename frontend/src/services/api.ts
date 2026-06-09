@@ -113,14 +113,15 @@ export async function fetchWorkspaceGraph(workspaceId: string): Promise<{ nodes:
   }
 }
 
-export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false): Promise<{ answer: string; insightFile?: string }> {
+export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false, model: string = "gpt-4o-mini"): Promise<{ answer: string; insightFile?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/v1/query`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer MVP_DUMMY_TOKEN",
-        "X-Workspace-ID": workspaceId
+        "X-Workspace-ID": workspaceId,
+        "X-AI-Model": model
       },
       body: JSON.stringify({ query, file_back }),
     });
@@ -136,7 +137,7 @@ export async function sendQuery(query: string, workspaceId: string = "default-wo
   }
 }
 
-export async function analyzeFiles(files: File[], workspaceId: string = "default-workspace"): Promise<{ nodes: any[]; links: any[] }> {
+export async function analyzeFiles(files: File[], workspaceId: string = "default-workspace", model: string = "gpt-4o-mini", deepseekKey: string = ""): Promise<{ nodes: any[]; links: any[] }> {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append("files", file);
@@ -146,7 +147,9 @@ export async function analyzeFiles(files: File[], workspaceId: string = "default
     method: "POST",
     headers: {
       "Authorization": "Bearer MVP_DUMMY_TOKEN",
-      "X-Workspace-ID": workspaceId
+      "X-Workspace-ID": workspaceId,
+      "X-AI-Model": model,
+      "X-DeepSeek-Key": deepseekKey
     },
     body: formData,
   });
@@ -218,3 +221,41 @@ export async function createWorkspace(name: string): Promise<{ status: string; w
   return await response.json();
 }
 
+export async function ingestNotionPage(apiKey: string, pageId: string, workspaceId: string = "default-workspace", model: string = "gpt-4o-mini", deepseekKey: string = ""): Promise<{ nodes: any[]; links: any[] }> {
+  const response = await fetch(`${API_BASE_URL}/v1/analyze/notion`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer MVP_DUMMY_TOKEN",
+      "X-Workspace-ID": workspaceId,
+      "X-AI-Model": model,
+      "X-DeepSeek-Key": deepseekKey
+    },
+    body: JSON.stringify({ apiKey, pageId }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Notion ingest API error: ${response.status} - ${errorBody}`);
+  }
+
+  return await response.json();
+}
+
+export async function verifyNotionToken(apiKey: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE_URL}/v1/analyze/notion/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer MVP_DUMMY_TOKEN"
+    },
+    body: JSON.stringify({ apiKey }),
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+  
+  const data = await response.json();
+  return data.valid === true;
+}

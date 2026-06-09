@@ -21,7 +21,10 @@ public class QueryController {
     private final com.aimsgraph.ingest.LlmService llmService;
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> query(@RequestBody QueryRequest request) {
+    public ResponseEntity<Map<String, String>> query(
+            @RequestBody QueryRequest request,
+            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName) {
+        
         String workspaceId = (String) RequestContextHolder.currentRequestAttributes()
                 .getAttribute(JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
 
@@ -29,7 +32,7 @@ public class QueryController {
             return ResponseEntity.status(401).body(Map.of("error", "UNAUTHORIZED", "message", "Workspace ID missing"));
         }
 
-        String answer = llmService.query(workspaceId, request.getQuery());
+        String answer = llmService.query(workspaceId, request.getQuery(), modelName);
         
         Map<String, String> response = new HashMap<>();
         response.put("answer", answer);

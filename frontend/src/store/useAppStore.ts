@@ -56,6 +56,16 @@ interface AppState {
   // Chat
   chatMessages: Message[];
   setChatMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
+
+  // External APIs
+  notionApiKey: string;
+  setNotionApiKey: (key: string) => void;
+
+  // AI Model Settings
+  selectedModel: 'gpt-4o-mini' | 'deepseek-v4';
+  setSelectedModel: (model: 'gpt-4o-mini' | 'deepseek-v4') => void;
+  deepseekApiKey: string;
+  setDeepseekApiKey: (key: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -89,10 +99,27 @@ export const useAppStore = create<AppState>()(
       setChatMessages: (updater) => set((state) => ({
         chatMessages: typeof updater === "function" ? updater(state.chatMessages) : updater
       })),
+
+      // External APIs
+      notionApiKey: "",
+      setNotionApiKey: (key) => set({ notionApiKey: key }),
+
+      // AI Model Settings
+      selectedModel: 'gpt-4o-mini',
+      setSelectedModel: (model) => set({ selectedModel: model }),
+      deepseekApiKey: "",
+      setDeepseekApiKey: (key) => set({ deepseekApiKey: key }),
     }),
     {
       name: 'aims-graph-storage',
-      partialize: (state) => ({ graphData: state.graphData, chatMessages: state.chatMessages, currentWorkspaceId: state.currentWorkspaceId }), // Persist graphData, chatMessages and currentWorkspaceId
+      partialize: (state) => ({ 
+        graphData: state.graphData, 
+        chatMessages: state.chatMessages, 
+        currentWorkspaceId: state.currentWorkspaceId,
+        notionApiKey: state.notionApiKey,
+        selectedModel: state.selectedModel,
+        deepseekApiKey: state.deepseekApiKey
+      }), // Persist graphData, chatMessages, workspace, notionApiKey, and AI settings
     }
   )
 );

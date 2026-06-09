@@ -8,7 +8,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { analyzeFiles, fetchWorkspaceGraph } from "@/services/api";
 
 export default function Home() {
-  const { setSelectedNodeId, graphData, setGraphData, currentWorkspaceId } = useAppStore();
+  const { setSelectedNodeId, graphData, setGraphData, currentWorkspaceId, selectedModel, deepseekApiKey } = useAppStore();
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function Home() {
     if (files.length === 0) return;
     setIsUploading(true);
     try {
-      const result = await analyzeFiles(files, currentWorkspaceId);
+      const result = await analyzeFiles(files, currentWorkspaceId, selectedModel, deepseekApiKey);
       setGraphData(result);
     } catch (error) {
       console.error("Analysis failed", error);

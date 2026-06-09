@@ -36,16 +36,43 @@ public class LlmService {
         return defaultApiKey;
     }
 
-    private ChatLanguageModel getOrCreateModel(String workspaceId) {
-        return modelCache.computeIfAbsent(workspaceId, id -> {
-            String apiKey = getApiKey(id);
-            log.info("Initializing OpenAiChatModel (gpt-4o-mini) for workspace: {}", id);
-            return OpenAiChatModel.builder()
-                    .apiKey(apiKey)
-                    .modelName("gpt-4o-mini")
-                    .temperature(0.2)
-                    .build();
+    private ChatLanguageModel getOrCreateModel(String workspaceId, String modelName, String deepseekKey) {
+        String cacheKey = workspaceId + ":" + (modelName != null ? modelName : "gpt-4o-mini");
+        return modelCache.computeIfAbsent(cacheKey, k -> {
+            if ("deepseek-v4".equalsIgnoreCase(modelName)) {
+                log.info("Initializing OpenAiChatModel (OpenRouter - DeepSeek) for workspace: {}", workspaceId);
+                String envDeepSeekKey = System.getenv("DEEPSEEK_API_KEY");
+                String finalKey = (deepseekKey != null && !deepseekKey.isBlank()) ? deepseekKey : envDeepSeekKey;
+                if (finalKey == null || finalKey.isBlank()) {
+                    log.warn("DeepSeek API Key is missing. Fallback to OpenAI API Key (might fail if not supported).");
+                    finalKey = getApiKey(workspaceId);
+                }
+                return OpenAiChatModel.builder()
+                        .apiKey(finalKey)
+                        .baseUrl("https://openrouter.ai/api/v1")
+                        .modelName("deepseek/deepseek-v4-flash")
+                        .temperature(0.2)
+                        .build();
+            } else {
+                String apiKey = getApiKey(workspaceId);
+                log.info("Initializing OpenAiChatModel (gpt-4o-mini) for workspace: {}", workspaceId);
+                return OpenAiChatModel.builder()
+                        .apiKey(apiKey)
+                        .modelName("gpt-4o-mini")
+                        .temperature(0.2)
+                        .build();
+            }
         });
+    }
+
+    public String queryDirect(String workspaceId, String userQuery, String modelName) {
+        try {
+            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName, null);
+            return model.generate(userQuery);
+        } catch (Exception e) {
+            log.error("Direct query failed", e);
+            return "Error: " + e.getMessage();
+        }
     }
 
     // ---------------------------------------------------------
@@ -54,7 +81,7 @@ public class LlmService {
     public List<ExtractedConcept> extractKnowledge(String eventId, String content, String workspaceId) {
         log.info("Extracting knowledge graph for text in workspace: {}", workspaceId);
         
-        ChatLanguageModel model = getOrCreateModel(workspaceId);
+        ChatLanguageModel model = getOrCreateModel(workspaceId, "gpt-4o-mini", null);
 
         String prompt = "You are a Second Brain Zettelkasten assistant.\n" +
                 "Analyze the following text and extract multiple atomic concepts or entities.\n" +
@@ -84,7 +111,7 @@ public class LlmService {
     // ---------------------------------------------------------
     // FILE INGESTION PIPELINE (AnalyzeController)
     // ---------------------------------------------------------
-    public Map<String, Object> analyzeFilesWithOpenAI(org.springframework.web.multipart.MultipartFile[] files, String workspaceId) throws Exception {
+    public Map<String, Object> analyzeFilesWithOpenAI(org.springframework.web.multipart.MultipartFile[] files, String workspaceId, String modelName, String deepseekKey) throws Exception {
         if (getApiKey(workspaceId) == null || getApiKey(workspaceId).isEmpty() || getApiKey(workspaceId).equals("demo")) {
             throw new RuntimeException("OpenAI API Key is not configured.");
         }
@@ -110,7 +137,7 @@ public class LlmService {
         String rawSourceText = rawSourceBuilder.toString();
 
         // === 2단계: 파일 분석하여 그래프(Nodes, Links) 추출 ===
-        String analysisResult = callResponsesAPI(fileIds, workspaceId);
+        String analysisResult = callResponsesAPI(fileIds, null, workspaceId);
         log.info("Analysis complete for {} file(s). Parsing graph data...", fileIds.size());
 
         String cleaned = analysisResult.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
@@ -125,6 +152,28 @@ public class LlmService {
         saveGraphToNeo4j(graphData, workspaceId);
         
         // 4단계: 클라이언트로 그래프 리턴 (이 시점에는 .md 파일이 모두 디스크에 존재함)
+        return graphData;
+    }
+
+    public Map<String, Object> analyzeTextWithOpenAI(String rawSourceText, String workspaceId, String modelName, String deepseekKey) throws Exception {
+        if (getApiKey(workspaceId) == null || getApiKey(workspaceId).isEmpty() || getApiKey(workspaceId).equals("demo")) {
+            throw new RuntimeException("OpenAI API Key is not configured.");
+        }
+
+        // === 1단계: 파일 대신 텍스트로 분석하여 그래프(Nodes, Links) 추출 ===
+        String analysisResult = callResponsesAPI(null, rawSourceText, workspaceId);
+        log.info("Analysis complete for raw text. Parsing graph data...");
+
+        String cleaned = analysisResult.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> graphData = mapper.readValue(cleaned, new TypeReference<Map<String, Object>>() {});
+        
+        // === 2단계: 동기식 & 병렬 위키 생성 ===
+        generateWikiPages(graphData, rawSourceText, workspaceId);
+        
+        // Neo4j에 그래프(노드와 링크) 저장
+        saveGraphToNeo4j(graphData, workspaceId);
+        
         return graphData;
     }
 
@@ -162,13 +211,23 @@ public class LlmService {
         return (String) respMap.get("id");
     }
 
-    private String callResponsesAPI(java.util.List<String> fileIds, String workspaceId) throws Exception {
+    private String callResponsesAPI(java.util.List<String> fileIds, String rawSourceText, String workspaceId) throws Exception {
+        java.util.Collection<Map<String, Object>> existingNodes = neo4jClient.query("MATCH (n:Concept {workspaceId: $workspaceId}) RETURN n.name as name LIMIT 200")
+                .bind(workspaceId).to("workspaceId").fetch().all();
+        List<String> existingNames = new java.util.ArrayList<>();
+        for (Map<String, Object> record : existingNodes) {
+            if (record.get("name") != null) existingNames.add((String) record.get("name"));
+        }
+        String existingConceptsStr = existingNames.isEmpty() ? "None" : String.join(", ", existingNames);
+
         String systemPrompt = "You are a structured data architect specializing in Zettelkasten-style Second Brain systems. "
                 + "Your sole job is to read the given document(s), identify their core knowledge structure, "
                 + "and output a single strictly validated JSON knowledge graph that UNIFIES all documents. "
                 + "You never hallucinate IDs. You never output anything other than valid JSON.";
 
-        String userPrompt = "Analyze the attached document(s) and build a single UNIFIED knowledge graph.\n\n"
+        String userPrompt = "Here are the existing concepts already in the knowledge graph: [" + existingConceptsStr + "]\n"
+                + "CRITICAL RULE: If a concept in the document strongly matches or relates to an existing concept, you MUST reuse the exact same ID. Only generate new IDs for entirely new concepts.\n\n"
+                + "Analyze the attached document(s) and build a single UNIFIED knowledge graph.\n\n"
                 + "Return ONLY a single valid JSON object.\n"
                 + "Example structure:\n"
                 + "{\"nodes\":[{\"id\":\"english-slug\",\"name\":\"Korean Name\",\"type\":\"concept\",\"summary\":\"One sentence summary in Korean\",\"val\":5,\"snippet\":\"1~2 sentences exact quote from the document explaining this concept\"}],"
@@ -176,10 +235,16 @@ public class LlmService {
 
         ObjectMapper mapper = new ObjectMapper();
         List<Map<String, Object>> contentArray = new java.util.ArrayList<>();
-        for (String fid : fileIds) {
-            contentArray.add(Map.of("type", "input_file", "file_id", fid));
+        if (fileIds != null && !fileIds.isEmpty()) {
+            for (String fid : fileIds) {
+                contentArray.add(Map.of("type", "input_file", "file_id", fid));
+            }
+            contentArray.add(Map.of("type", "input_text", "text", userPrompt));
+        } else if (rawSourceText != null && !rawSourceText.isEmpty()) {
+            contentArray.add(Map.of("type", "input_text", "text", "Raw Document Content:\n" + rawSourceText + "\n\n" + userPrompt));
+        } else {
+            throw new RuntimeException("Both fileIds and rawSourceText are empty");
         }
-        contentArray.add(Map.of("type", "input_text", "text", userPrompt));
 
         Map<String, Object> requestBody = Map.of(
                 "model", "gpt-4o-mini",
@@ -393,8 +458,17 @@ public class LlmService {
                                     }
 
                                     String filename = page.id().trim() + ".md";
-                                    java.nio.file.Files.writeString(wikiDir.resolve(filename), sb.toString());
-                                    log.info("Saved wiki page: {}", filename);
+                                    java.nio.file.Path filePath = wikiDir.resolve(filename);
+                                    
+                                    if (java.nio.file.Files.exists(filePath)) {
+                                        String existingContent = java.nio.file.Files.readString(filePath, java.nio.charset.StandardCharsets.UTF_8);
+                                        String appendedContent = existingContent + "\n## 추가 정보 (업데이트 됨)\n\n" + sb.toString();
+                                        java.nio.file.Files.writeString(filePath, appendedContent, java.nio.charset.StandardCharsets.UTF_8);
+                                        log.info("Appended to existing wiki page: {}", filename);
+                                    } else {
+                                        java.nio.file.Files.writeString(filePath, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
+                                        log.info("Saved wiki page: {}", filename);
+                                    }
                                 }
                             } finally {
                                 rateLimiter.release();
@@ -482,7 +556,10 @@ public class LlmService {
         List<String> relatedConcepts
     ) {}
 
-    public String query(String workspaceId, String userQuery) {
+    // ---------------------------------------------------------
+    // GRAPH QUERY PIPELINE
+    // ---------------------------------------------------------
+    public String query(String workspaceId, String userQuery, String modelName) {
         log.info("Executing query for workspace: {}", workspaceId);
         String apiKey = getApiKey(workspaceId);
         if (apiKey == null || apiKey.isEmpty() || apiKey.equals("demo")) {
@@ -493,7 +570,7 @@ public class LlmService {
             List<java.io.File> allFiles = collectMarkdownFiles(workspaceId);
             if (allFiles.isEmpty()) {
                 log.info("No wiki markdown files found. Falling back to direct query.");
-                return queryDirect(apiKey, userQuery);
+                return queryDirect(workspaceId, userQuery, modelName);
             }
 
             StringBuilder fileListBuilder = new StringBuilder();
@@ -509,7 +586,7 @@ public class LlmService {
                     + "User Query: " + userQuery + "\n\n"
                     + "Available Files:\n" + fileListBuilder.toString();
 
-            ChatLanguageModel model = getOrCreateModel(workspaceId);
+            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName, null);
             String filterResponse = model.generate(filterPrompt);
             List<Integer> selectedIndices = parseIndices(filterResponse);
 
@@ -540,13 +617,13 @@ public class LlmService {
                         + contextBuilder.toString()
                         + "[User Query]\n"
                         + userQuery;
-                return queryDirect(apiKey, enrichedQuery);
+                return queryDirect(workspaceId, enrichedQuery, modelName);
             } else {
-                return queryDirect(apiKey, userQuery);
+                return queryDirect(workspaceId, userQuery, modelName);
             }
         } catch (Exception e) {
             log.error("Failed to query OpenAI with wiki context, falling back to direct query", e);
-            return queryDirect(apiKey, userQuery);
+            return queryDirect(workspaceId, userQuery, modelName);
         }
     }
 
