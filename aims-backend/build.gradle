@@ -63,3 +63,7 @@ tasks.named('test') {
     def sanitizedPath = System.getenv("PATH").split(";").collect { it.trim() }.join(";")
     environment "PATH", sanitizedPath
 }
+
+tasks.named('bootRun') {
+    jvmArgs = ["-Xmx512m", "-Xms256m"]
+}

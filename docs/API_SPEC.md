@@ -91,6 +91,20 @@
 - **Headers**: `Authorization: Bearer {JWT_TOKEN}`
 - **Response `200 OK`**: `application/zip` 파일 스트림 (Neo4j 데이터 및 마크다운 위키 파일들을 포함하는 압축파일)
 
+**`DELETE /api/v1/workspaces/{workspace_id}/data`**
+- **Headers**: `Authorization: Bearer {JWT_TOKEN}`
+- **Response `200 OK`**:
+  ```json
+  {
+    "status": "OK",
+    "deletedNodes": 15,
+    "deletedFiles": 24
+  }
+  ```
+- **동작**:
+  - Neo4j에서 해당 `workspaceId`를 갖는 모든 노드와 관계를 분리 및 삭제(`DETACH DELETE`)합니다.
+  - 해당 워크스페이스의 물리적 루트 디렉토리(및 하위 파일/폴더 전체)를 재귀적으로 완전 삭제하여 데이터를 영구적으로 비웁니다.
+
 ---
 
 ## 3. Wiki Page API
@@ -100,6 +114,7 @@
 - **Headers**: `Authorization: Bearer {JWT_TOKEN}` (또는 `X-Workspace-ID`)
 - **Path Parameter**:
   - `conceptName`: 영문 파일 슬러그(예: `harness-framework`) 또는 한글/공백이 포함된 명칭(예: `하네스 프레임워크`).
+  - **경로 검증**: 경로 조작 공격(Path Traversal) 방지를 위해 `..`, `/`, `\` 문자열만 엄격히 차단하고, 그 외 한글, 공백 등 파일명에 사용 가능한 광범위한 문자셋을 허용합니다.
   - **동적 식별자 해소 레이어(Dynamic Slug Resolution)**: `conceptName`이 한글/공백 형식이면, 백엔드가 실시간으로 Neo4j 그래프 DB에서 해당 이름을 `title`로 갖는 개념 노드를 찾아 매핑된 영문 슬러그를 찾아내어 파일을 조회합니다.
 - **Response `200 OK`**:
   ```json

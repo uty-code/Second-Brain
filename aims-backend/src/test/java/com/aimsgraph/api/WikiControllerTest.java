@@ -101,7 +101,7 @@ public class WikiControllerTest {
 
     @Test
     void getWikiContent_InvalidName() throws Exception {
-        mockMvc.perform(get("/api/v1/wiki/invalid-name!")
+        mockMvc.perform(get("/api/v1/wiki/concept..name")
                 .requestAttr("workspaceId", "test-workspace")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())

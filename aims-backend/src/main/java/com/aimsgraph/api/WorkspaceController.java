@@ -205,12 +205,12 @@ public class WorkspaceController {
                 deletedNodes = val instanceof Number ? ((Number) val).longValue() : 0;
             }
 
-            // 2. Delete wiki files for this workspace
+            // 2. Delete all files and the workspace directory itself
             long deletedFiles = 0;
-            Path wikiPath = Paths.get(wikiBaseDir, workspaceId, "wiki");
-            if (Files.exists(wikiPath)) {
+            Path workspacePath = Paths.get(wikiBaseDir, workspaceId);
+            if (Files.exists(workspacePath)) {
                 // Walk in reverse depth order so files are deleted before directories
-                java.util.List<Path> filesToDelete = Files.walk(wikiPath)
+                java.util.List<Path> filesToDelete = Files.walk(workspacePath)
                         .sorted(java.util.Comparator.reverseOrder())
                         .collect(Collectors.toList());
                 for (Path p : filesToDelete) {

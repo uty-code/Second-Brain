@@ -34,7 +34,8 @@ public class WikiController {
 
     @GetMapping("/{conceptName}")
     public ResponseEntity<?> getWikiContent(@PathVariable String conceptName) {
-        if (conceptName == null || conceptName.isBlank() || !conceptName.matches("^[a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣_\\s-]+$")) {
+        // 경로 조작 공격(Path Traversal) 방지를 위해 ../ 와 같은 문자만 차단하고, 파일명에 쓸 수 있는 문자는 최대한 허용합니다.
+        if (conceptName == null || conceptName.isBlank() || conceptName.contains("..") || conceptName.contains("/") || conceptName.contains("\\")) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "INVALID_CONCEPT_NAME", "message", "The concept name contains invalid characters."));
         }

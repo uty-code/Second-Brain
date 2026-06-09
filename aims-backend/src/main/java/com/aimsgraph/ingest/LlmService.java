@@ -171,7 +171,7 @@ public class LlmService {
         String userPrompt = "Analyze the attached document(s) and build a single UNIFIED knowledge graph.\n\n"
                 + "Return ONLY a single valid JSON object.\n"
                 + "Example structure:\n"
-                + "{\"nodes\":[{\"id\":\"english-slug\",\"name\":\"Korean Name\",\"type\":\"concept\",\"summary\":\"One sentence summary in Korean\",\"val\":5}],"
+                + "{\"nodes\":[{\"id\":\"english-slug\",\"name\":\"Korean Name\",\"type\":\"concept\",\"summary\":\"One sentence summary in Korean\",\"val\":5,\"snippet\":\"1~2 sentences exact quote from the document explaining this concept\"}],"
                 + "\"links\":[{\"source\":\"node-id-a\",\"target\":\"node-id-b\",\"label\":\"RELATED_TO\"}]}\n";
 
         ObjectMapper mapper = new ObjectMapper();
@@ -227,6 +227,19 @@ public class LlmService {
     public void generateWikiPages(Map<String, Object> graphData, String rawSourceText, String workspaceId) {
         java.util.List<Map<String, Object>> nodes = (java.util.List<Map<String, Object>>) graphData.get("nodes");
         if (nodes == null || nodes.isEmpty()) return;
+
+        java.util.Map<String, java.util.List<String>> edgeMap = new java.util.HashMap<>();
+        java.util.List<Map<String, Object>> links = (java.util.List<Map<String, Object>>) graphData.get("links");
+        if (links != null) {
+            for (Map<String, Object> link : links) {
+                String source = (String) link.get("source");
+                String target = (String) link.get("target");
+                if (source != null && target != null) {
+                    edgeMap.computeIfAbsent(source, k -> new java.util.ArrayList<>()).add(target);
+                    edgeMap.computeIfAbsent(target, k -> new java.util.ArrayList<>()).add(source);
+                }
+            }
+        }
         
         log.info("Starting synchronous parallel wiki generation for {} nodes...", nodes.size());
         try {
@@ -267,7 +280,10 @@ public class LlmService {
                             "tags", Map.of("type", "array", "items", Map.of("type", "string")),
                             "aliases", Map.of("type", "array", "items", Map.of("type", "string")),
                             "content", Map.of("type", "string"),
-                            "relatedConcepts", Map.of("type", "array", "items", Map.of("type", "string"))
+                            "relatedConcepts", Map.of(
+                                "type", "array",
+                                "items", Map.of("type", "string")
+                            )
                         ),
                         "required", List.of("id", "title", "type", "summary", "tags", "aliases", "content", "relatedConcepts"),
                         "additionalProperties", false
@@ -288,14 +304,16 @@ public class LlmService {
                             rateLimiter.acquire();
                             try {
                                 String nodeJson = mapper.writeValueAsString(node);
+                                String snippet = (String) node.get("snippet");
                                 String userPrompt = "Here is the ORIGINAL SOURCE TEXT provided by the user:\n"
                                         + "==============================\n"
                                         + rawSourceText + "\n"
                                         + "==============================\n\n"
-                                        + "Based STRICTLY on the source text above, generate a detailed, high-quality wiki page for THIS SPECIFIC concept:\n"
+                                        + "And here is the EXACT QUOTE (Snippet) where this specific concept is mentioned:\n"
+                                        + ">>> " + snippet + " <<<\n\n"
+                                        + "Based on the ENTIRE source text for deep context, but FOCUSING HEAVILY on the exact quote above, generate a detailed, high-quality wiki page for THIS SPECIFIC concept:\n"
                                         + nodeJson + "\n\n"
-                                        + "Focus entirely on this one concept to maximize depth and accuracy. "
-                                        + "DO NOT hallucinate outside knowledge. Use only facts present in the ORIGINAL SOURCE TEXT.";
+                                        + "Maximize depth, accuracy, and capture the author's original intent from the surrounding context. DO NOT hallucinate outside knowledge.";
 
                                 java.util.List<Map<String, Object>> messages = new java.util.ArrayList<>();
                                 messages.add(Map.of("role", "system", "content", systemPrompt));
@@ -340,6 +358,13 @@ public class LlmService {
                                 StructuredWikiPage page = mapper.readValue(cleaned, StructuredWikiPage.class);
 
                                 if (page != null && page.id() != null && !page.id().isBlank()) {
+                                    java.util.List<String> actualLinks = edgeMap.getOrDefault(page.id(), new java.util.ArrayList<>());
+                                    java.util.List<String> validRelatedConcepts = actualLinks.stream().distinct().toList();
+                                    
+                                    page = new StructuredWikiPage(
+                                        page.id(), page.title(), page.type(), page.summary(), page.tags(), page.aliases(), page.content(), validRelatedConcepts
+                                    );
+
                                     StringBuilder sb = new StringBuilder();
                                     sb.append("---\n");
                                     sb.append("title: ").append(page.title() != null ? page.title() : "").append("\n");
@@ -360,9 +385,9 @@ public class LlmService {
                                     sb.append("---\n\n");
                                     sb.append(page.content() != null ? page.content() : "").append("\n\n");
                                     
-                                    if (page.relatedConcepts() != null && !page.relatedConcepts().isEmpty()) {
+                                    if (!validRelatedConcepts.isEmpty()) {
                                         sb.append("## 관련 개념들\n");
-                                        for (String related : page.relatedConcepts()) {
+                                        for (String related : validRelatedConcepts) {
                                             sb.append("- [[").append(related).append("]]\n");
                                         }
                                     }

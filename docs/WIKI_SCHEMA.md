@@ -33,6 +33,7 @@ updated_at: 2026-06-02          # [필수] 최종 갱신일
 - 다른 위키 문서를 언급할 때는 반드시 `[[Concept Name]]` 포맷을 사용.
 - LLM 에이전트가 교차 참조를 생성할 때는 단순 연결을 넘어서 **논리적 관계성(Type)**을 반드시 지정해야 함.
 - 후처리 파이프라인(IngestionWorker)에서 `EXTENDS`, `CONTRADICTS`, `DEPENDS_ON`, `EXPLAINS`, `RELATED_TO` 등 지정된 타입의 온톨로지 엣지(Edge)로 Neo4j에 자동 반영됨.
+- **정합성 교차 검증**: 위키 마크다운 파일 하단에 생성되는 `## 관련 개념들` 목록은 LLM의 임의 환각 방지를 위해, 입력 그래프 데이터의 실제 `links` 관계 정보(온톨로지 에지)와 백엔드(`LlmService`)에서 교차 검증(Cross-Reference)되어 실제 관계가 존재하는 노드만 Zettelkasten 형식(`- [[ConceptName]]`)으로 수집 및 렌더링됩니다.
 
 ## 5. 중앙 카탈로그 (`index.md`) 업데이트 규칙
 - 새 문서 생성 시, `index.md`의 카테고리(`## Concepts`, `## Entities`, `## Insights`) 하위에 링크 추가.
