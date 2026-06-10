@@ -81,4 +81,31 @@ public class NotionIngestService {
             return false;
         }
     }
+    public String searchNotionPageId(String query, String apiKey) {
+        try {
+            log.info("Searching Notion for query: {}", query);
+            RestClient restClient = RestClient.builder()
+                    .baseUrl("https://api.notion.com/v1/search")
+                    .defaultHeader("Authorization", "Bearer " + apiKey)
+                    .defaultHeader("Notion-Version", "2022-06-28")
+                    .defaultHeader("Content-Type", "application/json")
+                    .build();
+            
+            String requestBody = "{\"query\":\"" + query.replace("\"", "\\\"") + "\",\"filter\":{\"value\":\"page\",\"property\":\"object\"},\"page_size\":1}";
+            
+            String responseBody = restClient.post()
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+                    
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode results = root.path("results");
+            if (results.isArray() && results.size() > 0) {
+                return results.get(0).path("id").asText();
+            }
+        } catch (Exception e) {
+            log.error("Failed to search Notion page for query: {}", query, e);
+        }
+        return null;
+    }
 }

@@ -21,7 +21,7 @@ public class QueryController {
     private final com.aimsgraph.ingest.LlmService llmService;
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> query(
+    public ResponseEntity<Map<String, Object>> query(
             @RequestBody QueryRequest request,
             @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName) {
         
@@ -32,14 +32,15 @@ public class QueryController {
             return ResponseEntity.status(401).body(Map.of("error", "UNAUTHORIZED", "message", "Workspace ID missing"));
         }
 
-        String answer = llmService.query(workspaceId, request.getQuery(), modelName);
+        com.aimsgraph.ingest.LlmService.AgentResponse qr = llmService.query(workspaceId, request.getQuery(), modelName, request.isUseNotion(), request.getNotionApiKey());
         
-        Map<String, String> response = new HashMap<>();
-        response.put("answer", answer);
+        Map<String, Object> response = new HashMap<>();
+        response.put("answer", qr.answer());
+        response.put("graphUpdated", qr.graphUpdated());
 
         if (request.isFile_back()) {
             String title = "Insight from: " + request.getQuery();
-            String fileName = fileBackService.saveInsight(workspaceId, title, answer);
+            String fileName = fileBackService.saveInsight(workspaceId, title, qr.answer());
             response.put("insightFile", fileName);
         }
 
@@ -50,5 +51,7 @@ public class QueryController {
     public static class QueryRequest {
         private String query;
         private boolean file_back;
+        private boolean useNotion;
+        private String notionApiKey;
     }
 }

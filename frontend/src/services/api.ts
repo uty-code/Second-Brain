@@ -113,7 +113,7 @@ export async function fetchWorkspaceGraph(workspaceId: string): Promise<{ nodes:
   }
 }
 
-export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false, model: string = "gpt-4o-mini"): Promise<{ answer: string; insightFile?: string }> {
+export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false, model: string = "gpt-4o-mini", useNotion: boolean = false, notionApiKey: string = ""): Promise<{ answer: string; insightFile?: string; graphUpdated?: boolean }> {
   try {
     const response = await fetch(`${API_BASE_URL}/v1/query`, {
       method: "POST",
@@ -123,7 +123,7 @@ export async function sendQuery(query: string, workspaceId: string = "default-wo
         "X-Workspace-ID": workspaceId,
         "X-AI-Model": model
       },
-      body: JSON.stringify({ query, file_back }),
+      body: JSON.stringify({ query, file_back, useNotion, notionApiKey }),
     });
     
     if (!response.ok) {

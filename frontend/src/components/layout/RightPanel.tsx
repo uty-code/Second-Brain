@@ -11,6 +11,36 @@ export function RightPanel() {
   const { selectedNodeId, setSelectedNodeId, isRightPanelOpen, rightPanelTab, setRightPanelTab, currentWorkspaceId } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState<string>("");
+  const [width, setWidth] = useState(320);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (!isDragging) {
+      document.body.style.userSelect = "";
+      return;
+    }
+
+    document.body.style.userSelect = "none";
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      setWidth(Math.max(250, Math.min(800, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
 
   useEffect(() => {
     let isMounted = true;
@@ -40,7 +70,16 @@ export function RightPanel() {
   if (!isRightPanelOpen) return null;
 
   return (
-    <aside className="w-80 h-full border-l border-zinc-800 flex flex-col bg-zinc-900 shrink-0">
+    <aside 
+      className="relative h-full border-l border-zinc-800 flex flex-col bg-zinc-900 shrink-0"
+      style={{ width: `${width}px` }}
+    >
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-600/80 z-10 transition-colors ${
+          isDragging ? "bg-zinc-500" : "bg-transparent"
+        }`}
+        onMouseDown={() => setIsDragging(true)}
+      />
       <div className="flex border-b border-zinc-800">
         <button
           onClick={() => setRightPanelTab("chat")}

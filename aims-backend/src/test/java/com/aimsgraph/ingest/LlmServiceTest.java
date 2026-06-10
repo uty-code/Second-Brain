@@ -38,7 +38,7 @@ public class LlmServiceTest {
     @BeforeEach
     void setUp() {
         Map<String, ChatLanguageModel> mockCache = new ConcurrentHashMap<>();
-        mockCache.put("tenant-1", chatLanguageModel);
+        mockCache.put("tenant-1:gpt-4o-mini", chatLanguageModel);
         ReflectionTestUtils.setField(llmService, "modelCache", mockCache);
     }
 
@@ -82,35 +82,29 @@ public class LlmServiceTest {
     java.nio.file.Path tempWikiDir;
 
     @Test
-    void query_shouldRetrieveWikiFilesAndEnrichQuery() throws Exception {
+    void query_shouldUseAgenticGraphTraversal() throws Exception {
         // Given
         ReflectionTestUtils.setField(llmService, "wikiBaseDir", tempWikiDir.toAbsolutePath().toString());
         ReflectionTestUtils.setField(llmService, "defaultApiKey", "test-api-key");
 
-        java.nio.file.Path conceptDir = tempWikiDir.resolve("tenant-1").resolve("wiki").resolve("concepts");
-        java.nio.file.Files.createDirectories(conceptDir);
-        java.nio.file.Path file1 = conceptDir.resolve("harness-framework.md");
-        java.nio.file.Files.writeString(file1, "Harness Framework is a software deployment framework.");
-
-        java.nio.file.Path entityDir = tempWikiDir.resolve("tenant-1").resolve("wiki").resolve("entities");
-        java.nio.file.Files.createDirectories(entityDir);
-        java.nio.file.Path file2 = entityDir.resolve("some-entity.md");
-        java.nio.file.Files.writeString(file2, "Entity info.");
-
-        when(chatLanguageModel.generate(anyString())).thenReturn("[0]");
-
-        LlmService spyService = org.mockito.Mockito.spy(llmService);
-        org.mockito.ArgumentCaptor<String> queryCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
-        org.mockito.Mockito.doReturn("Mocked Response").when(spyService).queryDirect(anyString(), queryCaptor.capture());
+        dev.langchain4j.data.message.AiMessage aiMessage = dev.langchain4j.data.message.AiMessage.from("Agent Answer");
+        dev.langchain4j.model.output.Response<dev.langchain4j.data.message.AiMessage> aiResponse = dev.langchain4j.model.output.Response.from(aiMessage);
+        
+        org.mockito.Mockito.lenient().when(chatLanguageModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any())).thenReturn(aiResponse);
+        org.mockito.Mockito.lenient().when(chatLanguageModel.generate(
+                org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any(),
+                org.mockito.ArgumentMatchers.<List<dev.langchain4j.agent.tool.ToolSpecification>>any()
+        )).thenReturn(aiResponse);
+        org.mockito.Mockito.lenient().when(chatLanguageModel.generate(
+                org.mockito.ArgumentMatchers.anyString()
+        )).thenReturn("Agent Answer");
 
         // When
-        String response = spyService.query("tenant-1", "Explain Harness Framework");
+        String response = llmService.query("tenant-1", "Explain Harness Framework", "gpt-4o-mini", false, null);
+        System.out.println("TEST RESPONSE: " + response);
 
         // Then
-        assertEquals("Mocked Response", response);
-        String capturedQuery = queryCaptor.getValue();
-        org.junit.jupiter.api.Assertions.assertTrue(capturedQuery.contains("Harness Framework is a software deployment framework."));
-        org.junit.jupiter.api.Assertions.assertTrue(capturedQuery.contains("Explain Harness Framework"));
+        assertEquals("Agent Answer", response);
     }
 
     @Test

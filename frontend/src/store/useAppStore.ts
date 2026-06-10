@@ -57,6 +57,10 @@ interface AppState {
   chatMessages: Message[];
   setChatMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
 
+  // Global Loading State for Graph Generation
+  isGraphLoading: boolean;
+  setIsGraphLoading: (loading: boolean) => void;
+
   // External APIs
   notionApiKey: string;
   setNotionApiKey: (key: string) => void;
@@ -99,6 +103,10 @@ export const useAppStore = create<AppState>()(
       setChatMessages: (updater) => set((state) => ({
         chatMessages: typeof updater === "function" ? updater(state.chatMessages) : updater
       })),
+
+      // Global Loading State for Graph Generation
+      isGraphLoading: false,
+      setIsGraphLoading: (loading) => set({ isGraphLoading: loading }),
 
       // External APIs
       notionApiKey: "",

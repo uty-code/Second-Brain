@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { UploadCloud, Loader2, X, FileText } from "lucide-react";
+import { UploadCloud, Loader2, X, FileText, BrainCircuit } from "lucide-react";
 import { useDropzone } from "react-dropzone";
+import { useAppStore } from "@/store/useAppStore";
 
 interface EmptyStateProps {
   onSubmit: (files: File[]) => void;
@@ -11,6 +12,7 @@ interface EmptyStateProps {
 
 export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const { selectedModel, setSelectedModel } = useAppStore();
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (accepted) => {
@@ -100,11 +102,27 @@ export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
           </div>
         )}
 
+        {/* AI Model Selection */}
+        {!isUploading && (
+          <div className="w-full flex gap-3 mt-2">
+            <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-all ${selectedModel === 'gpt-4o-mini' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+              <input type="radio" name="empty_model" checked={selectedModel === 'gpt-4o-mini'} onChange={() => setSelectedModel('gpt-4o-mini')} className="hidden" />
+              <BrainCircuit className="w-4 h-4" />
+              <span className="text-xs font-semibold">GPT-4o Mini</span>
+            </label>
+            <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-all ${selectedModel === 'deepseek-v4' ? 'bg-indigo-500/10 border-indigo-500/50 text-indigo-400' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+              <input type="radio" name="empty_model" checked={selectedModel === 'deepseek-v4'} onChange={() => setSelectedModel('deepseek-v4')} className="hidden" />
+              <BrainCircuit className="w-4 h-4" />
+              <span className="text-xs font-semibold">DeepSeek v4</span>
+            </label>
+          </div>
+        )}
+
         {/* Submit button */}
         {stagedFiles.length > 0 && !isUploading && (
           <button
             onClick={() => onSubmit(stagedFiles)}
-            className="w-full py-2.5 bg-zinc-100 text-zinc-900 text-sm font-medium rounded hover:bg-white transition-colors"
+            className="w-full py-2.5 bg-zinc-100 text-zinc-900 text-sm font-medium rounded hover:bg-white transition-colors mt-2"
           >
             {stagedFiles.length}개 파일 분석 시작
           </button>

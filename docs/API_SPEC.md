@@ -141,10 +141,12 @@
   ```json
   {
     "question": "LLM Wiki와 RAG의 근본적인 차이점은?",
-    "file_back": true
+    "file_back": true,
+    "useNotion": true
   }
   ```
 - `file_back`: `true`이면 응답 결과를 새로운 위키 페이지로 자동 저장(Filed back)합니다.
+- `useNotion`: `true`일 경우 선택한 Notion 문서를 실시간으로 검색해 컨텍스트에 추가합니다. (선택)
 - **Response `200 OK`**:
   ```json
   {

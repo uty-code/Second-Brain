@@ -10,12 +10,12 @@ import { ingestNotionPage, verifyNotionToken } from "@/services/api";
 
 const NotionIcon = ({ className }: { className?: string }) => (
   <svg 
-    className={className} 
-    viewBox="0 0 24 24" 
-    fill="currentColor" 
-    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 640 640"
+    fill="currentColor"
   >
-    <path d="M4.459 4.208c-.746.286-1.144.514-1.33.743-.163.228-.228.6-.228 1.173v11.754c0 .543.085.886.262 1.115.176.228.651.514 1.396.829l11.026 3.633c.715.228 1.115.257 1.272.228.2-.029.343-.114.4-.257.085-.143.114-.429.114-.858V10.814c0-.515-.086-.887-.257-1.116-.172-.257-.658-.515-1.401-.8L5.059 4.351c-.2-.086-.4-.143-.6-.143zm1.945 15.678V8.652c0-.286.057-.457.172-.514.114-.086.257-.057.457.029l7.035 2.373c.172.057.258.171.258.343v11.155c0 .286-.057.486-.172.543-.114.057-.286.057-.486-.029l-7.064-2.43c-.143-.057-.2-.171-.2-.228z" />
+    <path d="M158.9 164.2C173.8 176.3 179.4 175.4 207.5 173.5L471.8 157.6C477.4 157.6 472.7 152 470.9 151.1L426.9 119.4C418.5 112.9 407.3 105.4 385.8 107.3L129.9 125.9C120.6 126.8 118.7 131.5 122.4 135.2L158.8 164.1zM174.8 225.8L174.8 503.9C174.8 518.8 182.3 524.4 199.1 523.5L489.6 506.7C506.4 505.8 508.3 495.5 508.3 483.4L508.3 207.2C508.3 195.1 503.6 188.5 493.3 189.5L189.7 207.1C178.5 208 174.8 213.6 174.8 225.8zM461.5 240.7C463.4 249.1 461.5 257.5 453.1 258.5L439.1 261.3L439.1 466.6C426.9 473.1 415.7 476.9 406.4 476.9C391.4 476.9 387.7 472.2 376.5 458.2L285 314.5L285 453.5L314 460C314 460 314 476.8 290.6 476.8L226.2 480.5C224.3 476.8 226.2 467.4 232.7 465.6L249.5 460.9L249.5 277.1L226.2 275.2C224.3 266.8 229 254.7 242.1 253.7L311.2 249L406.5 394.6L406.5 265.8L382.2 263C380.3 252.7 387.8 245.3 397.1 244.3L461.6 240.5zM108.4 100.7L374.6 81.1C407.3 78.3 415.7 80.2 436.2 95.1L521.2 154.8C535.2 165.1 539.9 167.9 539.9 179.1L539.9 506.7C539.9 527.2 532.4 539.4 506.3 541.2L197.2 559.8C177.6 560.7 168.2 557.9 158 544.9L95.4 463.7C84.2 448.8 79.5 437.6 79.5 424.5L79.5 133.3C79.5 116.5 87 102.5 108.4 100.6z" />
   </svg>
 );
 
@@ -45,12 +45,13 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMcpModal, setShowMcpModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
-  const { setGraphData, currentWorkspaceId, notionApiKey, setNotionApiKey, selectedModel, setSelectedModel, deepseekApiKey, setDeepseekApiKey } = useAppStore();
+  const { setGraphData, currentWorkspaceId, notionApiKey, setNotionApiKey, selectedModel, setSelectedModel, deepseekApiKey, setDeepseekApiKey, isGraphLoading } = useAppStore();
   const [activeTab, setActiveTab] = useState<'connected' | 'available'>(notionApiKey ? 'connected' : 'available');
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
-  const [notionPageId, setNotionPageId] = useState("");
+
   const [isNotionLoading, setIsNotionLoading] = useState(false);
   const [tempDeepseekKey, setTempDeepseekKey] = useState(deepseekApiKey || "");
 
@@ -201,6 +202,19 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
 
   return (
     <div id="graph-container" className="w-full h-full bg-zinc-900 overflow-hidden relative">
+      {(isGraphLoading || isUploading) && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-zinc-900/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center justify-center p-10 w-full max-w-lg border border-dashed border-zinc-700 bg-zinc-800/20 rounded-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <Loader2 className="w-10 h-10 text-zinc-400 mb-3 animate-spin" />
+            <p className="text-zinc-200 text-center text-sm font-medium mb-1">
+              지식 그래프를 생성하는 중...
+            </p>
+            <p className="text-zinc-500 text-center text-xs animate-pulse">
+              AI가 문서를 분석하고 있습니다.
+            </p>
+          </div>
+        </div>
+      )}
       {showMcpModal && (
         <div className="absolute inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMcpModal(false)} />
@@ -422,9 +436,10 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
 
       <div className="absolute bottom-8 right-8 z-50 flex items-center gap-4">
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setShowUploadModal(true)}
           disabled={isUploading}
-          className="relative flex items-center justify-center p-4 rounded-full bg-zinc-800/80 backdrop-blur-md border border-zinc-700/50 shadow-2xl text-white hover:bg-zinc-700 hover:scale-105 transition-all duration-300"
+          className="relative flex items-center justify-center p-4 rounded-full bg-zinc-800/80 backdrop-blur-md border border-zinc-700/50 shadow-2xl text-white hover:bg-zinc-700 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="파일 업로드"
         >
           {isUploading ? (
             <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
@@ -433,11 +448,39 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
           )}
         </button>
 
-        <button onClick={() => setShowMcpModal(true)} className="relative flex items-center justify-center p-4 rounded-full bg-zinc-800/80 backdrop-blur-md border border-zinc-700/50 shadow-2xl text-white hover:bg-zinc-700 hover:scale-105 transition-all duration-300" title="MCP 연결 설정">
+        <button onClick={() => setShowMcpModal(prev => !prev)} className="relative flex items-center justify-center p-4 rounded-full bg-zinc-800/80 backdrop-blur-md border border-zinc-700/50 shadow-2xl text-white hover:bg-zinc-700 hover:scale-105 transition-all duration-300" title="MCP 연결 설정">
            <Server className="w-6 h-6 text-zinc-300" />
-           <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-zinc-400 rounded-full border-2 border-zinc-900 animate-pulse"></span>
+           <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zinc-900 animate-pulse"></span>
         </button>
       </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isUploading && setShowUploadModal(false)} />
+          <div className="relative bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-[600px] max-w-[90vw] overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50">
+              <h3 className="text-zinc-100 font-semibold flex items-center gap-2">
+                <UploadCloud className="w-5 h-5 text-indigo-400" /> 파일 업로드 및 분석
+              </h3>
+              {!isUploading && (
+                <button onClick={() => setShowUploadModal(false)} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <div className="flex-1 w-full relative h-[400px]">
+              <EmptyState 
+                onSubmit={(files) => { 
+                  setShowUploadModal(false); 
+                  if(onFileDrop) onFileDrop(files); 
+                }} 
+                isUploading={isUploading} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Model Selection Modal */}
       {showModelModal && (

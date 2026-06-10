@@ -28,6 +28,7 @@ public class LlmService {
 
     private final WorkspaceService workspaceService;
     private final Neo4jClient neo4jClient;
+    private final NotionIngestService notionIngestService;
     private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
 
     private String getApiKey(String workspaceId) {
@@ -556,121 +557,185 @@ public class LlmService {
         List<String> relatedConcepts
     ) {}
 
+    public class GraphTools {
+        private final String workspaceId;
+        private final boolean useNotion;
+        private final String notionApiKey;
+        private final String modelName;
+        private final String deepseekKey;
+        public boolean graphUpdated = false;
+
+        public GraphTools(String workspaceId, boolean useNotion, String notionApiKey, String modelName, String deepseekKey) {
+            this.workspaceId = workspaceId;
+            this.useNotion = useNotion;
+            this.notionApiKey = notionApiKey;
+            this.modelName = modelName;
+            this.deepseekKey = deepseekKey;
+        }
+
+        @dev.langchain4j.agent.tool.Tool("Search Neo4j graph by keyword and return matching node names/IDs")
+        public List<String> searchGraph(String keyword) {
+            log.info("Tool [searchGraph] keyword: {}", keyword);
+            String cypher = "MATCH (c:Concept {workspaceId: $workspaceId}) " +
+                            "WHERE toLower(c.name) CONTAINS toLower($keyword) OR toLower(c.title) CONTAINS toLower($keyword) " +
+                            "RETURN c.name as name LIMIT 10";
+            java.util.Collection<Map<String, Object>> results = neo4jClient.query(cypher)
+                    .bind(workspaceId).to("workspaceId")
+                    .bind(keyword).to("keyword")
+                    .fetch().all();
+            
+            List<String> names = new java.util.ArrayList<>();
+            for (Map<String, Object> r : results) {
+                if (r.get("name") != null) names.add((String) r.get("name"));
+            }
+            if (names.isEmpty()) {
+                return List.of("No nodes found for keyword: " + keyword);
+            }
+            return names;
+        }
+
+        @dev.langchain4j.agent.tool.Tool("Get relationships and neighbor node IDs for a specific node ID")
+        public String getNodeContext(String nodeId) {
+            log.info("Tool [getNodeContext] nodeId: {}", nodeId);
+            String cypher = "MATCH (c:Concept {name: $nodeId, workspaceId: $workspaceId})-[r]-(neighbor:Concept) " +
+                            "RETURN type(r) as relType, neighbor.name as neighborName, startNode(r) = c as isOut LIMIT 20";
+            java.util.Collection<Map<String, Object>> results = neo4jClient.query(cypher)
+                    .bind(workspaceId).to("workspaceId")
+                    .bind(nodeId).to("nodeId")
+                    .fetch().all();
+            
+            if (results.isEmpty()) return "No relationships found for " + nodeId;
+            
+            StringBuilder sb = new StringBuilder("Relationships for ").append(nodeId).append(":\n");
+            for (Map<String, Object> r : results) {
+                String relType = (String) r.get("relType");
+                String neighborName = (String) r.get("neighborName");
+                Boolean isOut = (Boolean) r.get("isOut");
+                if (Boolean.TRUE.equals(isOut)) {
+                    sb.append(" - [").append(relType).append("]-> ").append(neighborName).append("\n");
+                } else {
+                    sb.append(" <-[").append(relType).append("]- ").append(neighborName).append("\n");
+                }
+            }
+            return sb.toString();
+        }
+
+        @dev.langchain4j.agent.tool.Tool("Read the content of a markdown wiki page by node ID")
+        public String readWikiPage(String nodeId) {
+            log.info("Tool [readWikiPage] nodeId: {}", nodeId);
+            String[] subDirs = {"concepts", "entities", "insights"};
+            for (String subDir : subDirs) {
+                java.nio.file.Path path = java.nio.file.Paths.get(wikiBaseDir, workspaceId, "wiki", subDir, nodeId + ".md");
+                if (java.nio.file.Files.exists(path)) {
+                    try {
+                        return java.nio.file.Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+                    } catch (Exception e) {
+                        return "Failed to read wiki page: " + e.getMessage();
+                    }
+                }
+            }
+            return "Wiki page not found for ID: " + nodeId;
+        }
+
+        @dev.langchain4j.agent.tool.Tool("Search and read relevant Notion context by query or read specific page if available")
+        public String readNotionPage(String query) {
+            log.info("Tool [readNotionPage] query: {}", query);
+            if (!useNotion) {
+                return "Notion access is toggled off. You cannot use this tool right now.";
+            }
+            
+            String apiKey = (notionApiKey != null && !notionApiKey.isBlank()) ? notionApiKey : System.getenv("NOTION_API_KEY");
+            if (apiKey == null || apiKey.isBlank()) {
+                return "Notion API key is missing. Cannot access Notion.";
+            }
+
+            try {
+                String targetPageId = notionIngestService.searchNotionPageId(query, apiKey);
+                
+                if (targetPageId != null && !targetPageId.isEmpty()) {
+                    return notionIngestService.fetchNotionPageText(targetPageId, apiKey);
+                } else {
+                    return "No matching Notion page found for query: " + query;
+                }
+            } catch (Exception e) {
+                return "Failed to fetch Notion content: " + e.getMessage();
+            }
+        }
+
+        @dev.langchain4j.agent.tool.Tool("Save or build new knowledge into the Second Brain based on user's request. Pass the specific topic and the detailed raw context.")
+        public String saveToSecondBrain(String topic, String rawContent) {
+            log.info("Tool [saveToSecondBrain] topic: {}", topic);
+            try {
+                LlmService.this.analyzeTextWithOpenAI(rawContent, workspaceId, modelName, deepseekKey);
+                this.graphUpdated = true;
+                return "Successfully saved '" + topic + "' to Second Brain. Please inform the user that the graph has been automatically updated.";
+            } catch (Exception e) {
+                log.error("Failed to save to Second Brain", e);
+                return "Failed to save to Second Brain: " + e.getMessage();
+            }
+        }
+    }
+
+    public record AgentResponse(String answer, boolean graphUpdated) {}
+
+    interface GraphAgent {
+        @dev.langchain4j.service.SystemMessage(
+            "You are a Second Brain Zettelkasten assistant equipped with Agentic Graph Traversal.\n" +
+            "Your goal is to accurately answer user queries by exploring the knowledge graph, reading wiki pages, and interacting with Notion (if enabled).\n" +
+            "Follow these steps:\n" +
+            "1. Extract key concepts from the user's query.\n" +
+            "2. Use `searchGraph` to find relevant starting node IDs.\n" +
+            "3. Use `getNodeContext` to see relationships of important nodes.\n" +
+            "4. Use `readWikiPage` to read the actual content of the nodes to gather facts.\n" +
+            "5. If Notion access is enabled and relevant, use `readNotionPage` to get additional context.\n" +
+            "6. Synthesize all gathered information into a comprehensive answer.\n" +
+            "7. IF the user requests to save, build, or record new knowledge/concepts into the Second Brain:\n" +
+            "   - You MUST use the `saveToSecondBrain` tool.\n" +
+            "   - The `rawContent` parameter MUST be the full, detailed, original source text. DO NOT summarize it.\n" +
+            "   - After a successful save, inform the user that the graph has been updated automatically.\n" +
+            "8. ALWAYS reply in Korean."
+        )
+        String chat(@dev.langchain4j.service.UserMessage String userMessage);
+    }
+
     // ---------------------------------------------------------
     // GRAPH QUERY PIPELINE
     // ---------------------------------------------------------
-    public String query(String workspaceId, String userQuery, String modelName) {
-        log.info("Executing query for workspace: {}", workspaceId);
+    public AgentResponse query(String workspaceId, String userQuery, String modelName, boolean useNotion, String providedNotionApiKey) {
+        log.info("Executing agentic query for workspace: {}", workspaceId);
         String apiKey = getApiKey(workspaceId);
         if (apiKey == null || apiKey.isEmpty() || apiKey.equals("demo")) {
-            return "API Key is missing or invalid. Please check your settings.";
+            return new AgentResponse("API Key is missing or invalid. Please check your settings.", false);
         }
 
         try {
-            List<java.io.File> allFiles = collectMarkdownFiles(workspaceId);
-            if (allFiles.isEmpty()) {
-                log.info("No wiki markdown files found. Falling back to direct query.");
-                return queryDirect(workspaceId, userQuery, modelName);
-            }
-
-            StringBuilder fileListBuilder = new StringBuilder();
-            for (int i = 0; i < allFiles.size(); i++) {
-                fileListBuilder.append(i).append(": ").append(allFiles.get(i).getName()).append("\n");
-            }
-
-            String filterPrompt = "You are a context retrieval assistant.\n"
-                    + "We have a list of wiki files (Zettelkasten notes) in our system.\n"
-                    + "Based on the user query, select the top 3 to 5 most relevant files that can help answer the query.\n"
-                    + "Respond ONLY with a JSON array of integers representing the indices of the selected files (e.g., [0, 3, 5]).\n"
-                    + "Do not include any Markdown formatting (like ```json) or explanation.\n\n"
-                    + "User Query: " + userQuery + "\n\n"
-                    + "Available Files:\n" + fileListBuilder.toString();
-
             ChatLanguageModel model = getOrCreateModel(workspaceId, modelName, null);
-            String filterResponse = model.generate(filterPrompt);
-            List<Integer> selectedIndices = parseIndices(filterResponse);
+            String deepseekKey = System.getenv("DEEPSEEK_API_KEY");
+            GraphTools tools = new GraphTools(workspaceId, useNotion, providedNotionApiKey, modelName, deepseekKey);
 
-            StringBuilder contextBuilder = new StringBuilder();
-            int count = 0;
-            for (int idx : selectedIndices) {
-                if (idx >= 0 && idx < allFiles.size()) {
-                    java.io.File file = allFiles.get(idx);
-                    try {
-                        String content = java.nio.file.Files.readString(file.toPath(), java.nio.charset.StandardCharsets.UTF_8);
-                        contextBuilder.append("--- Wiki Concept File: ").append(file.getName()).append(" ---\n");
-                        contextBuilder.append(content).append("\n\n");
-                        count++;
-                        if (count >= 5) {
-                            break;
-                        }
-                    } catch (Exception fe) {
-                        log.error("Failed to read wiki file: {}", file.getAbsolutePath(), fe);
-                    }
-                }
-            }
+            GraphAgent agent = dev.langchain4j.service.AiServices.builder(GraphAgent.class)
+                .chatLanguageModel(model)
+                .chatMemory(dev.langchain4j.memory.chat.MessageWindowChatMemory.withMaxMessages(10))
+                .tools(tools)
+                .build();
 
-            if (contextBuilder.length() > 0) {
-                String enrichedQuery = "You are a helpful assistant utilizing a Second Brain wiki database.\n"
-                        + "Answer the user's query using the following context collected from the user's second brain wiki. "
-                        + "If the context doesn't contain the answer, you can use your general knowledge but prioritize the wiki contents.\n\n"
-                        + "[Wiki Context]\n"
-                        + contextBuilder.toString()
-                        + "[User Query]\n"
-                        + userQuery;
-                return queryDirect(workspaceId, enrichedQuery, modelName);
+            String awarenessPrompt;
+            if (useNotion) {
+                awarenessPrompt = "You are a helpful assistant integrated with the Second Brain Wiki and Notion via backend MCP.\n"
+                        + "IMPORTANT RULE: DO NOT announce or explicitly state that you have access to Notion UNLESS the user explicitly asks 'Do you have access?'.\n"
+                        + "Just seamlessly use the provided tools to answer the question naturally.\n\n";
             } else {
-                return queryDirect(workspaceId, userQuery, modelName);
+                awarenessPrompt = "You are a helpful assistant integrated with the Second Brain Wiki. Currently, Notion access is TOGGLED OFF.\n"
+                        + "IMPORTANT RULE: DO NOT announce your Notion access status unless explicitly asked. If asked, explain that they must toggle the Notion button ON.\n"
+                        + "Do not use the readNotionPage tool.\n\n";
             }
-        } catch (Exception e) {
-            log.error("Failed to query OpenAI with wiki context, falling back to direct query", e);
-            return queryDirect(workspaceId, userQuery, modelName);
-        }
-    }
 
-    private List<java.io.File> collectMarkdownFiles(String workspaceId) {
-        List<java.io.File> mdFiles = new java.util.ArrayList<>();
-        String[] subDirs = {"concepts", "entities", "insights"};
-        for (String subDir : subDirs) {
-            java.nio.file.Path path = java.nio.file.Paths.get(wikiBaseDir, workspaceId, "wiki", subDir);
-            if (java.nio.file.Files.exists(path) && java.nio.file.Files.isDirectory(path)) {
-                java.io.File dir = path.toFile();
-                java.io.File[] files = dir.listFiles((dir1, name) -> name.toLowerCase().endsWith(".md"));
-                if (files != null) {
-                    for (java.io.File f : files) {
-                        mdFiles.add(f);
-                    }
-                }
-            }
-        }
-        return mdFiles;
-    }
-
-    private List<Integer> parseIndices(String response) {
-        List<Integer> indices = new java.util.ArrayList<>();
-        if (response == null) return indices;
-        
-        String cleaned = response.replaceAll("^```json\\s*", "")
-                                 .replaceAll("^```\\s*", "")
-                                 .replaceAll("\\s*```$", "")
-                                 .trim();
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            List<Integer> parsed = mapper.readValue(cleaned, new TypeReference<List<Integer>>() {});
-            if (parsed != null) {
-                indices.addAll(parsed);
-            }
+            String answer = agent.chat(awarenessPrompt + "[User Query]\n" + userQuery);
+            return new AgentResponse(answer, tools.graphUpdated);
         } catch (Exception e) {
-            log.warn("Failed to parse indices from LLM response: {}", cleaned, e);
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\d+").matcher(cleaned);
-            while (m.find()) {
-                try {
-                    indices.add(Integer.parseInt(m.group()));
-                } catch (NumberFormatException nfe) {
-                    // ignore
-                }
-            }
+            log.error("Failed to query with agentic traversal, falling back to direct query", e);
+            return new AgentResponse(queryDirect(workspaceId, "[User Query]\n" + userQuery, modelName), false);
         }
-        return indices;
     }
 
     String queryDirect(String apiKey, String userQuery) {
