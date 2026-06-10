@@ -100,11 +100,11 @@ public class LlmServiceTest {
         )).thenReturn("Agent Answer");
 
         // When
-        String response = llmService.query("tenant-1", "Explain Harness Framework", "gpt-4o-mini", false, null);
-        System.out.println("TEST RESPONSE: " + response);
+        com.aimsgraph.ingest.LlmService.AgentResponse response = llmService.query("tenant-1", "Explain Harness Framework", "gpt-4o-mini", false);
+        System.out.println("TEST RESPONSE: " + response.answer());
 
         // Then
-        assertEquals("Agent Answer", response);
+        assertEquals("Agent Answer", response.answer());
     }
 
     @Test

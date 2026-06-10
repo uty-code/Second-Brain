@@ -7,14 +7,23 @@ import org.springframework.web.client.RestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
+import com.aimsgraph.domain.workspace.WorkspaceCredentials;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotionIngestService {
 
     private final ObjectMapper objectMapper;
+    private final WorkspaceCredentialsService credentialsService;
 
-    public String fetchNotionPageText(String pageId, String apiKey) {
+    public String fetchNotionPageText(String pageId, String workspaceId) {
+        WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+        String apiKey = creds != null ? creds.getNotionApiKey() : null;
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("Notion API Key is not configured for this workspace.");
+        }
         String cleanId = pageId.split("\\?")[0].replaceAll("[^a-zA-Z0-9]", "");
         if (cleanId.length() >= 32) {
             cleanId = cleanId.substring(cleanId.length() - 32);
@@ -80,6 +89,15 @@ public class NotionIngestService {
             log.error("Token verification failed: {}", e.getMessage());
             return false;
         }
+    }
+
+    public boolean verifyTokenForWorkspace(String workspaceId) {
+        WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+        String apiKey = creds != null ? creds.getNotionApiKey() : null;
+        if (apiKey == null || apiKey.isBlank()) {
+            return false;
+        }
+        return verifyToken(apiKey);
     }
     public String searchNotionPageId(String query, String apiKey) {
         try {

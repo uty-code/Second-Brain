@@ -19,14 +19,19 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
+import com.aimsgraph.domain.workspace.WorkspaceCredentials;
+
 @RestController
 @RequestMapping("/api/v1/workspaces")
 @RequiredArgsConstructor
 public class WorkspaceController {
 
 
+
     private final Neo4jClient neo4jClient;
     private final ObjectMapper objectMapper;
+    private final WorkspaceCredentialsService credentialsService;
     
     @org.springframework.beans.factory.annotation.Value("${wiki.base.dir:workspaces}")
     private String wikiBaseDir;
@@ -234,4 +239,44 @@ public class WorkspaceController {
         }
     }
 
+    @GetMapping("/{workspace_id}/credentials/status")
+    public ResponseEntity<Map<String, Boolean>> getCredentialsStatus(
+            @PathVariable("workspace_id") String workspaceId) {
+        String currentTenant = (String) RequestContextHolder.currentRequestAttributes()
+                .getAttribute(JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+        if (!workspaceId.equals(currentTenant)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        WorkspaceCredentials creds = credentialsService.getRawCredentials(workspaceId);
+        
+        boolean hasNotion = creds != null && creds.getNotionApiKey() != null && !creds.getNotionApiKey().isBlank();
+        boolean hasGithub = creds != null && creds.getGithubApiKey() != null && !creds.getGithubApiKey().isBlank();
+        boolean hasDeepseek = creds != null && creds.getDeepseekApiKey() != null && !creds.getDeepseekApiKey().isBlank();
+
+        return ResponseEntity.ok(Map.of(
+            "hasNotionKey", hasNotion,
+            "hasGithubKey", hasGithub,
+            "hasDeepseekKey", hasDeepseek
+        ));
+    }
+
+    @PutMapping("/{workspace_id}/credentials")
+    public ResponseEntity<Map<String, String>> updateCredentials(
+            @PathVariable("workspace_id") String workspaceId,
+            @RequestBody Map<String, String> body) {
+        String currentTenant = (String) RequestContextHolder.currentRequestAttributes()
+                .getAttribute(JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+        if (!workspaceId.equals(currentTenant)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        String notionApiKey = body.get("notionApiKey");
+        String githubApiKey = body.get("githubApiKey");
+        String deepseekApiKey = body.get("deepseekApiKey");
+        
+        credentialsService.updateCredentials(workspaceId, notionApiKey, githubApiKey, deepseekApiKey);
+        
+        return ResponseEntity.ok(Map.of("status", "OK"));
+    }
 }

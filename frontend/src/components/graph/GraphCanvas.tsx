@@ -6,7 +6,7 @@ import { GraphData, GraphNode, GraphLink } from "@/types/graph";
 import { EmptyState } from "./EmptyState";
 import { UploadCloud, Loader2, Server, CheckCircle2, X, Settings2, GitPullRequest, HardDrive, ChevronDown, ChevronUp, BrainCircuit } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { ingestNotionPage, verifyNotionToken, verifyGithubToken } from "@/services/api";
+import { fetchCredentialsStatus, updateCredentials } from "@/services/api";
 
 const NotionIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -56,31 +56,26 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMcpModal, setShowMcpModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
-  const { setGraphData, currentWorkspaceId, notionApiKey, setNotionApiKey, githubApiKey, setGithubApiKey, selectedModel, setSelectedModel, deepseekApiKey, setDeepseekApiKey, isGraphLoading } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'connected' | 'available'>(notionApiKey || githubApiKey ? 'connected' : 'available');
+  const { setGraphData, currentWorkspaceId, selectedModel, setSelectedModel, isGraphLoading, credentialsStatus, setCredentialsStatus } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'connected' | 'available'>('available');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
   const [tempGithubKey, setTempGithubKey] = useState("");
-
-  const [isNotionLoading, setIsNotionLoading] = useState(false);
-  const [tempDeepseekKey, setTempDeepseekKey] = useState(deepseekApiKey || "");
+  const [tempDeepseekKey, setTempDeepseekKey] = useState("");
 
   const handleVerifyAndSaveToken = async (tokenInput: string, onSuccess: () => void) => {
     if (!tokenInput) return;
     setIsVerifying(true);
     try {
-      const isValid = await verifyNotionToken(tokenInput);
-      if (isValid) {
-        setNotionApiKey(tokenInput);
-        onSuccess();
-      } else {
-        alert("유효하지 않은 토큰입니다. 다시 확인해주세요.");
-      }
+      await updateCredentials(currentWorkspaceId, { notionApiKey: tokenInput });
+      const status = await fetchCredentialsStatus(currentWorkspaceId);
+      setCredentialsStatus(status);
+      onSuccess();
     } catch (err) {
       console.error(err);
-      alert("토큰 검증 중 서버 오류가 발생했습니다.");
+      alert("토큰 업데이트 중 서버 오류가 발생했습니다.");
     } finally {
       setIsVerifying(false);
     }
@@ -90,26 +85,31 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
     if (!tokenInput) return;
     setIsVerifying(true);
     try {
-      const isValid = await verifyGithubToken(tokenInput);
-      if (isValid) {
-        setGithubApiKey(tokenInput);
-        onSuccess();
-      } else {
-        alert("유효하지 않은 GitHub 토큰입니다. 다시 확인해주세요.");
-      }
+      await updateCredentials(currentWorkspaceId, { githubApiKey: tokenInput });
+      const status = await fetchCredentialsStatus(currentWorkspaceId);
+      setCredentialsStatus(status);
+      onSuccess();
     } catch (err) {
-      alert("토큰 검증 중 서버 오류가 발생했습니다.");
+      alert("토큰 업데이트 중 서버 오류가 발생했습니다.");
     } finally {
       setIsVerifying(false);
     }
   };
 
-  // 모달을 열 때마다 토큰 유무에 따라 똑똑하게 첫 탭을 결정합니다.
+  useEffect(() => {
+    fetchCredentialsStatus(currentWorkspaceId).then(status => {
+      setCredentialsStatus(status);
+      if (status.hasNotionKey || status.hasGithubKey) {
+        setActiveTab('connected');
+      }
+    });
+  }, [currentWorkspaceId, setCredentialsStatus]);
+
   useEffect(() => {
     if (showMcpModal) {
-      setActiveTab(notionApiKey || githubApiKey ? 'connected' : 'available');
+      setActiveTab(credentialsStatus?.hasNotionKey || credentialsStatus?.hasGithubKey ? 'connected' : 'available');
     }
-  }, [showMcpModal, notionApiKey, githubApiKey]);
+  }, [showMcpModal, credentialsStatus]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -279,14 +279,14 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
               {/* === CONNECTED TAB === */}
               {activeTab === 'connected' && (
                 <div className="space-y-3">
-                  {!notionApiKey && !githubApiKey ? (
+                  {!credentialsStatus?.hasNotionKey && !credentialsStatus?.hasGithubKey ? (
                     <div className="flex flex-col items-center justify-center py-10 text-zinc-500">
                       <Server className="w-8 h-8 mb-2 opacity-20" />
                       <p className="text-sm">현재 연결된 서비스가 없습니다.</p>
                     </div>
                   ) : (
                     <>
-                      {notionApiKey && (
+                      {credentialsStatus?.hasNotionKey && (
                         <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
                           <div className="p-4 flex items-center justify-between hover:bg-zinc-800/60 cursor-pointer" onClick={() => setExpandedCard(expandedCard === 'notion_connected' ? null : 'notion_connected')}>
                             <div className="flex items-center gap-3">
@@ -312,21 +312,20 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                                  <label className="block text-xs text-zinc-400 mb-1">Notion API Token (수정 가능)</label>
                                  <input 
                                    type="password" 
-                                   value={tempApiKey || notionApiKey} 
+                                   value={tempApiKey} 
                                    onChange={e => setTempApiKey(e.target.value)} 
                                    className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
-                                   placeholder="secret_..." 
+                                   placeholder="새로운 토큰을 입력하면 업데이트됩니다." 
                                  />
                                  <button 
                                    onClick={() => { 
-                                     const targetToken = tempApiKey || notionApiKey;
-                                     handleVerifyAndSaveToken(targetToken, () => {
+                                     handleVerifyAndSaveToken(tempApiKey, () => {
                                        setExpandedCard(null); 
                                        setTempApiKey("");
                                        alert("Notion 토큰이 성공적으로 갱신되었습니다."); 
                                      });
                                    }} 
-                                   disabled={isVerifying || (!tempApiKey && !notionApiKey)}
+                                   disabled={isVerifying || !tempApiKey}
                                    className="mt-3 w-full py-2 flex items-center justify-center bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
                                  >
                                    {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -338,7 +337,7 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                         </div>
                       )}
 
-                      {githubApiKey && (
+                      {credentialsStatus?.hasGithubKey && (
                         <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
                           <div className="p-4 flex items-center justify-between hover:bg-zinc-800/60 cursor-pointer" onClick={() => setExpandedCard(expandedCard === 'github_connected' ? null : 'github_connected')}>
                             <div className="flex items-center gap-3">
@@ -364,21 +363,20 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                                  <label className="block text-xs text-zinc-400 mb-1">GitHub PAT Token (수정 가능)</label>
                                  <input 
                                    type="password" 
-                                   value={tempGithubKey || githubApiKey} 
+                                   value={tempGithubKey} 
                                    onChange={e => setTempGithubKey(e.target.value)} 
                                    className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
-                                   placeholder="ghp_..." 
+                                   placeholder="새로운 토큰을 입력하면 업데이트됩니다." 
                                  />
                                  <button 
                                    onClick={() => { 
-                                     const targetToken = tempGithubKey || githubApiKey;
-                                     handleVerifyAndSaveGithubToken(targetToken, () => {
+                                     handleVerifyAndSaveGithubToken(tempGithubKey, () => {
                                        setExpandedCard(null); 
                                        setTempGithubKey("");
                                        alert("GitHub 토큰이 성공적으로 갱신되었습니다."); 
                                      });
                                    }} 
-                                   disabled={isVerifying || (!tempGithubKey && !githubApiKey)}
+                                   disabled={isVerifying || !tempGithubKey}
                                    className="mt-3 w-full py-2 flex items-center justify-center bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
                                  >
                                    {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -400,8 +398,8 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                   {/* Notion Available Card (Always show) */}
                   <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
                     <div 
-                      className={`p-4 flex items-center justify-between ${notionApiKey ? 'cursor-default' : 'hover:bg-zinc-800/60 cursor-pointer'}`} 
-                      onClick={() => !notionApiKey && setExpandedCard(expandedCard === 'notion_available' ? null : 'notion_available')}
+                      className={`p-4 flex items-center justify-between ${credentialsStatus?.hasNotionKey ? 'cursor-default' : 'hover:bg-zinc-800/60 cursor-pointer'}`} 
+                      onClick={() => !credentialsStatus?.hasNotionKey && setExpandedCard(expandedCard === 'notion_available' ? null : 'notion_available')}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
@@ -410,19 +408,19 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                         <div>
                           <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
                             Notion
-                            {notionApiKey && <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-400 text-[10px] border border-zinc-700">Connected</span>}
+                            {credentialsStatus?.hasNotionKey && <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-400 text-[10px] border border-zinc-700">Connected</span>}
                           </h4>
                           <p className="text-xs text-zinc-500">노션 페이지와 데이터베이스 연동</p>
                         </div>
                       </div>
-                      {!notionApiKey && (
+                      {!credentialsStatus?.hasNotionKey && (
                         <button className="text-zinc-400 hover:text-white">
                           {expandedCard === 'notion_available' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
                         </button>
                       )}
                     </div>
                     
-                    {expandedCard === 'notion_available' && !notionApiKey && (
+                    {expandedCard === 'notion_available' && !credentialsStatus?.hasNotionKey && (
                       <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
                          <div className="mt-3">
                            <label className="block text-xs text-zinc-400 mb-1">Notion API Token 추가</label>
@@ -456,8 +454,8 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                   {/* Github Available Card */}
                   <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
                     <div 
-                      className={`p-4 flex items-center justify-between ${githubApiKey ? 'cursor-default' : 'hover:bg-zinc-800/60 cursor-pointer'}`} 
-                      onClick={() => !githubApiKey && setExpandedCard(expandedCard === 'github_available' ? null : 'github_available')}
+                      className={`p-4 flex items-center justify-between ${credentialsStatus?.hasGithubKey ? 'cursor-default' : 'hover:bg-zinc-800/60 cursor-pointer'}`} 
+                      onClick={() => !credentialsStatus?.hasGithubKey && setExpandedCard(expandedCard === 'github_available' ? null : 'github_available')}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
@@ -466,19 +464,19 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
                         <div>
                           <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
                             GitHub
-                            {githubApiKey && <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-400 text-[10px] border border-zinc-700">Connected</span>}
+                            {credentialsStatus?.hasGithubKey && <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-400 text-[10px] border border-zinc-700">Connected</span>}
                           </h4>
                           <p className="text-xs text-zinc-500">리포지토리 이슈 및 문서 연동</p>
                         </div>
                       </div>
-                      {!githubApiKey && (
+                      {!credentialsStatus?.hasGithubKey && (
                         <button className="text-zinc-400 hover:text-white">
                           {expandedCard === 'github_available' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
                         </button>
                       )}
                     </div>
                     
-                    {expandedCard === 'github_available' && !githubApiKey && (
+                    {expandedCard === 'github_available' && !credentialsStatus?.hasGithubKey && (
                       <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
                          <div className="mt-3">
                            <label className="block text-xs text-zinc-400 mb-1">GitHub PAT Token 추가</label>

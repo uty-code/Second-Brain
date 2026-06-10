@@ -7,7 +7,7 @@ import { useAppStore, Message } from "@/store/useAppStore";
 import { MarkdownViewer } from "@/components/viewer/MarkdownViewer";
 
 export function ChatPanel() {
-  const { chatMessages: messages, setChatMessages: setMessages, currentWorkspaceId, selectedModel, setSelectedNodeId, notionApiKey, setIsGraphLoading } = useAppStore();
+  const { chatMessages: messages, setChatMessages: setMessages, currentWorkspaceId, selectedModel, setSelectedNodeId, credentialsStatus, setIsGraphLoading } = useAppStore();
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useNotion, setUseNotion] = useState(false);
@@ -38,7 +38,7 @@ export function ChatPanel() {
     setIsSubmitting(true);
 
     try {
-      const response = await sendQuery(userMessage.content, currentWorkspaceId, false, selectedModel, useNotion, notionApiKey);
+      const response = await sendQuery(userMessage.content, currentWorkspaceId, false, selectedModel, useNotion);
       
       setMessages((prev) => 
         prev.map((msg) => 
@@ -93,7 +93,7 @@ export function ChatPanel() {
       </div>
       
       <div className="p-4 border-t border-zinc-800 bg-zinc-900 flex flex-col gap-3">
-        {notionApiKey && (
+        {credentialsStatus?.hasNotionKey && (
           <div className="flex items-center gap-4 px-1">
             <button
               type="button"

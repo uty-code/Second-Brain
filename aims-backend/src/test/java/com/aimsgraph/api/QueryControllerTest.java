@@ -38,7 +38,8 @@ public class QueryControllerTest {
             .thenReturn(true);
 
         when(fileBackService.saveInsight(anyString(), anyString(), anyString())).thenReturn("insight-123.md");
-        when(llmService.query(anyString(), anyString(), anyString(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("Actual LLM Answer");
+        com.aimsgraph.ingest.LlmService.AgentResponse mockResponse = new com.aimsgraph.ingest.LlmService.AgentResponse("Actual LLM Answer", false);
+        when(llmService.query(anyString(), anyString(), anyString(), org.mockito.ArgumentMatchers.anyBoolean())).thenReturn(mockResponse);
 
         String jsonPayload = """
                 {

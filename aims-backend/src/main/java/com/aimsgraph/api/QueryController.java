@@ -32,7 +32,7 @@ public class QueryController {
             return ResponseEntity.status(401).body(Map.of("error", "UNAUTHORIZED", "message", "Workspace ID missing"));
         }
 
-        com.aimsgraph.ingest.LlmService.AgentResponse qr = llmService.query(workspaceId, request.getQuery(), modelName, request.isUseNotion(), request.getNotionApiKey());
+        com.aimsgraph.ingest.LlmService.AgentResponse qr = llmService.query(workspaceId, request.getQuery(), modelName, request.isUseNotion());
         
         Map<String, Object> response = new HashMap<>();
         response.put("answer", qr.answer());
@@ -52,6 +52,5 @@ public class QueryController {
         private String query;
         private boolean file_back;
         private boolean useNotion;
-        private String notionApiKey;
     }
 }

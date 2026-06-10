@@ -61,17 +61,20 @@ interface AppState {
   isGraphLoading: boolean;
   setIsGraphLoading: (loading: boolean) => void;
 
-  // External APIs
-  notionApiKey: string;
-  setNotionApiKey: (key: string) => void;
-  githubApiKey: string;
-  setGithubApiKey: (key: string) => void;
+  credentialsStatus: { hasNotionKey: boolean, hasGithubKey: boolean, hasDeepseekKey: boolean } | null;
+  setCredentialsStatus: (status: { hasNotionKey: boolean, hasGithubKey: boolean, hasDeepseekKey: boolean } | null) => void;
+
+  // Auth
+  jwtToken: string | null;
+  setJwtToken: (token: string | null) => void;
+  isLoggedIn: boolean;
+  setIsLoggedIn: (isLoggedIn: boolean) => void;
+  currentUser: string | null;
+  setCurrentUser: (user: string | null) => void;
 
   // AI Model Settings
   selectedModel: 'gpt-4o-mini' | 'deepseek-v4';
   setSelectedModel: (model: 'gpt-4o-mini' | 'deepseek-v4') => void;
-  deepseekApiKey: string;
-  setDeepseekApiKey: (key: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -110,17 +113,20 @@ export const useAppStore = create<AppState>()(
       isGraphLoading: false,
       setIsGraphLoading: (loading) => set({ isGraphLoading: loading }),
 
-      // External APIs
-      notionApiKey: "",
-      setNotionApiKey: (key) => set({ notionApiKey: key }),
-      githubApiKey: "",
-      setGithubApiKey: (key) => set({ githubApiKey: key }),
+      credentialsStatus: null,
+      setCredentialsStatus: (status) => set({ credentialsStatus: status }),
+
+      // Auth
+      jwtToken: null,
+      setJwtToken: (token) => set({ jwtToken: token }),
+      isLoggedIn: false,
+      setIsLoggedIn: (isLoggedIn) => set({ isLoggedIn }),
+      currentUser: null,
+      setCurrentUser: (user) => set({ currentUser: user }),
 
       // AI Model Settings
       selectedModel: 'gpt-4o-mini',
       setSelectedModel: (model) => set({ selectedModel: model }),
-      deepseekApiKey: "",
-      setDeepseekApiKey: (key) => set({ deepseekApiKey: key }),
     }),
     {
       name: 'aims-graph-storage',
@@ -128,11 +134,11 @@ export const useAppStore = create<AppState>()(
         graphData: state.graphData, 
         chatMessages: state.chatMessages, 
         currentWorkspaceId: state.currentWorkspaceId,
-        notionApiKey: state.notionApiKey,
-        githubApiKey: state.githubApiKey,
         selectedModel: state.selectedModel,
-        deepseekApiKey: state.deepseekApiKey
-      }), // Persist graphData, chatMessages, workspace, notionApiKey, githubApiKey, and AI settings
+        jwtToken: state.jwtToken,
+        isLoggedIn: state.isLoggedIn,
+        currentUser: state.currentUser
+      }), // Persist graphData, chatMessages, workspace, AI settings, and auth
     }
   )
 );

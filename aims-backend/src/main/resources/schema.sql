@@ -4,6 +4,22 @@ CREATE TABLE Workspace (
     created_at DATETIME2 DEFAULT GETUTCDATE()
 );
 
+CREATE TABLE Users (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    default_workspace_id VARCHAR(50),
+    created_at DATETIME2 DEFAULT GETUTCDATE()
+);
+
+CREATE TABLE WorkspaceCredentials (
+    workspace_id VARCHAR(50) PRIMARY KEY,
+    notion_api_key VARCHAR(MAX),
+    github_api_key VARCHAR(MAX),
+    deepseek_api_key VARCHAR(MAX),
+    updated_at DATETIME2 DEFAULT GETUTCDATE()
+);
+
 CREATE TABLE RawSource (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     workspace_id VARCHAR(50),

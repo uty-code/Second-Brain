@@ -21,6 +21,9 @@ public class WorkspaceControllerTest {
     private org.springframework.data.neo4j.core.Neo4jClient neo4jClient;
 
     @MockBean
+    private com.aimsgraph.domain.workspace.WorkspaceCredentialsService credentialsService;
+
+    @MockBean
     private com.aimsgraph.auth.JwtInterceptor jwtInterceptor;
 
     @Test

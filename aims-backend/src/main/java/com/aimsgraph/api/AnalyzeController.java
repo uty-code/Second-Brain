@@ -30,8 +30,7 @@ public class AnalyzeController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> analyzeFiles(
             @RequestParam("files") MultipartFile[] files,
-            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName,
-            @RequestHeader(value = "X-DeepSeek-Key", required = false) String deepseekKey) {
+            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName) {
         
         log.info("Received {} file(s) for analysis", files.length);
 
@@ -50,7 +49,7 @@ public class AnalyzeController {
         }
 
         try {
-            Map<String, Object> graphData = llmService.analyzeFilesWithOpenAI(files, workspaceId, modelName, deepseekKey);
+            Map<String, Object> graphData = llmService.analyzeFilesWithOpenAI(files, workspaceId, modelName);
             return ResponseEntity.ok(graphData);
         } catch (Exception e) {
             log.error("File analysis failed", e);
@@ -62,13 +61,12 @@ public class AnalyzeController {
     @PostMapping(value = "/notion", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> analyzeNotion(
             @RequestBody NotionRequestDto request,
-            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName,
-            @RequestHeader(value = "X-DeepSeek-Key", required = false) String deepseekKey) {
+            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName) {
         log.info("Received Notion import request for pageId: {}", request.pageId());
 
-        if (request.pageId() == null || request.pageId().isBlank() || request.apiKey() == null || request.apiKey().isBlank()) {
+        if (request.pageId() == null || request.pageId().isBlank()) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "BAD_REQUEST", "message", "pageId and apiKey are required."));
+                    .body(Map.of("error", "BAD_REQUEST", "message", "pageId is required."));
         }
 
         String workspaceId = "default-workspace";
@@ -81,12 +79,12 @@ public class AnalyzeController {
         }
 
         try {
-            String rawText = notionIngestService.fetchNotionPageText(request.pageId(), request.apiKey());
+            String rawText = notionIngestService.fetchNotionPageText(request.pageId(), workspaceId);
             if (rawText.isBlank()) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "NO_TEXT", "message", "No text could be extracted from the provided Notion page."));
             }
-            Map<String, Object> graphData = llmService.analyzeTextWithOpenAI(rawText, workspaceId, modelName, deepseekKey);
+            Map<String, Object> graphData = llmService.analyzeTextWithOpenAI(rawText, workspaceId, modelName);
             return ResponseEntity.ok(graphData);
         } catch (Exception e) {
             log.error("Notion analysis failed", e);
@@ -95,16 +93,20 @@ public class AnalyzeController {
         }
     }
 
-    @PostMapping(value = "/notion/verify", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> verifyNotionToken(@RequestBody VerifyRequestDto request) {
+    @PostMapping(value = "/notion/verify")
+    public ResponseEntity<Map<String, Object>> verifyNotionToken() {
         log.info("Received Notion token verify request");
-        if (request.apiKey() == null || request.apiKey().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("valid", false, "message", "API Key is required"));
+        String workspaceId = "default-workspace";
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            String attrWorkspaceId = (String) attrs.getAttribute(JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+            if (attrWorkspaceId != null && !attrWorkspaceId.isEmpty()) {
+                workspaceId = attrWorkspaceId;
+            }
         }
-        boolean isValid = notionIngestService.verifyToken(request.apiKey());
+        boolean isValid = notionIngestService.verifyTokenForWorkspace(workspaceId);
         return ResponseEntity.ok(Map.of("valid", isValid));
     }
 
-    public record NotionRequestDto(String apiKey, String pageId) {}
-    public record VerifyRequestDto(String apiKey) {}
+    public record NotionRequestDto(String pageId) {}
 }

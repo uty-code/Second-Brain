@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthGuard } from "@/components/AuthGuard";
 
 export const metadata: Metadata = {
   title: "AIMS-Graph",
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="ko" className="dark" suppressHydrationWarning>
       <body className="bg-zinc-900 text-zinc-50 antialiased overflow-hidden" suppressHydrationWarning>
-        {children}
+        <AuthGuard>
+          {children}
+        </AuthGuard>
       </body>
     </html>
   );

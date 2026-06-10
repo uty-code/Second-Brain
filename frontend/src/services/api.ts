@@ -5,6 +5,14 @@
 
 // Base URL for the backend API
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+export const SSE_URL = `${API_BASE_URL}/v1/mcp/sse`;
+
+import { useAppStore } from '../store/useAppStore';
+
+function getAuthHeader() {
+  const token = useAppStore.getState().jwtToken;
+  return `Bearer ${token || 'MVP_DUMMY_TOKEN'}`;
+}
 
 export class SSEClient {
   private eventSource: EventSource | null = null;
@@ -77,7 +85,7 @@ export async function fetchWorkspaces(): Promise<string[]> {
     const response = await fetch(`${API_BASE_URL}/v1/workspaces/list`, {
       method: "GET",
       headers: {
-        "Authorization": "Bearer MVP_DUMMY_TOKEN"
+        "Authorization": getAuthHeader()
       }
     });
     
@@ -97,7 +105,7 @@ export async function fetchWorkspaceGraph(workspaceId: string): Promise<{ nodes:
     const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/graph`, {
       method: "GET",
       headers: {
-        "Authorization": "Bearer MVP_DUMMY_TOKEN",
+        "Authorization": getAuthHeader(),
         "X-Workspace-ID": workspaceId
       }
     });
@@ -113,17 +121,17 @@ export async function fetchWorkspaceGraph(workspaceId: string): Promise<{ nodes:
   }
 }
 
-export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false, model: string = "gpt-4o-mini", useNotion: boolean = false, notionApiKey: string = ""): Promise<{ answer: string; insightFile?: string; graphUpdated?: boolean }> {
+export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false, model: string = "gpt-4o-mini", useNotion: boolean = false): Promise<{ answer: string; insightFile?: string; graphUpdated?: boolean }> {
   try {
     const response = await fetch(`${API_BASE_URL}/v1/query`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer MVP_DUMMY_TOKEN",
+        "Authorization": getAuthHeader(),
         "X-Workspace-ID": workspaceId,
         "X-AI-Model": model
       },
-      body: JSON.stringify({ query, file_back, useNotion, notionApiKey }),
+      body: JSON.stringify({ query, file_back, useNotion }),
     });
     
     if (!response.ok) {
@@ -137,7 +145,7 @@ export async function sendQuery(query: string, workspaceId: string = "default-wo
   }
 }
 
-export async function analyzeFiles(files: File[], workspaceId: string = "default-workspace", model: string = "gpt-4o-mini", deepseekKey: string = ""): Promise<{ nodes: any[]; links: any[] }> {
+export async function analyzeFiles(files: File[], workspaceId: string = "default-workspace", model: string = "gpt-4o-mini"): Promise<{ nodes: any[]; links: any[] }> {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append("files", file);
@@ -146,10 +154,9 @@ export async function analyzeFiles(files: File[], workspaceId: string = "default
   const response = await fetch(`${API_BASE_URL}/v1/analyze`, {
     method: "POST",
     headers: {
-      "Authorization": "Bearer MVP_DUMMY_TOKEN",
+      "Authorization": getAuthHeader(),
       "X-Workspace-ID": workspaceId,
-      "X-AI-Model": model,
-      "X-DeepSeek-Key": deepseekKey
+      "X-AI-Model": model
     },
     body: formData,
   });
@@ -167,7 +174,7 @@ export async function fetchWikiPageContent(conceptName: string, workspaceId: str
     const response = await fetch(`${API_BASE_URL}/v1/wiki/${conceptName}`, {
       method: "GET",
       headers: {
-        "Authorization": "Bearer MVP_DUMMY_TOKEN",
+        "Authorization": getAuthHeader(),
         "X-Workspace-ID": workspaceId
       }
     });
@@ -190,7 +197,7 @@ export async function deleteWorkspaceData(workspaceId: string): Promise<{ status
   const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/data`, {
     method: "DELETE",
     headers: {
-      "Authorization": "Bearer MVP_DUMMY_TOKEN",
+      "Authorization": getAuthHeader(),
       "X-Workspace-ID": workspaceId,
     },
   });
@@ -208,7 +215,7 @@ export async function createWorkspace(name: string): Promise<{ status: string; w
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer MVP_DUMMY_TOKEN",
+      "Authorization": getAuthHeader(),
     },
     body: JSON.stringify({ name }),
   });
@@ -221,17 +228,16 @@ export async function createWorkspace(name: string): Promise<{ status: string; w
   return await response.json();
 }
 
-export async function ingestNotionPage(apiKey: string, pageId: string, workspaceId: string = "default-workspace", model: string = "gpt-4o-mini", deepseekKey: string = ""): Promise<{ nodes: any[]; links: any[] }> {
+export async function ingestNotionPage(pageId: string, workspaceId: string = "default-workspace", model: string = "gpt-4o-mini"): Promise<{ nodes: any[]; links: any[] }> {
   const response = await fetch(`${API_BASE_URL}/v1/analyze/notion`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer MVP_DUMMY_TOKEN",
+      "Authorization": getAuthHeader(),
       "X-Workspace-ID": workspaceId,
-      "X-AI-Model": model,
-      "X-DeepSeek-Key": deepseekKey
+      "X-AI-Model": model
     },
-    body: JSON.stringify({ apiKey, pageId }),
+    body: JSON.stringify({ pageId }),
   });
 
   if (!response.ok) {
@@ -242,14 +248,13 @@ export async function ingestNotionPage(apiKey: string, pageId: string, workspace
   return await response.json();
 }
 
-export async function verifyNotionToken(apiKey: string): Promise<boolean> {
+export async function verifyNotionToken(workspaceId: string): Promise<boolean> {
   const response = await fetch(`${API_BASE_URL}/v1/analyze/notion/verify`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer MVP_DUMMY_TOKEN"
-    },
-    body: JSON.stringify({ apiKey }),
+      "Authorization": getAuthHeader(),
+      "X-Workspace-ID": workspaceId
+    }
   });
 
   if (!response.ok) {
@@ -271,4 +276,62 @@ export async function verifyGithubToken(token: string): Promise<boolean> {
   } catch (error) {
     return false;
   }
+}
+
+export async function fetchCredentialsStatus(workspaceId: string): Promise<{ hasNotionKey: boolean; hasGithubKey: boolean; hasDeepseekKey: boolean }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/credentials/status`, {
+      method: "GET",
+      headers: {
+        "Authorization": getAuthHeader(),
+        "X-Workspace-ID": workspaceId
+      }
+    });
+    if (!response.ok) {
+      return { hasNotionKey: false, hasGithubKey: false, hasDeepseekKey: false };
+    }
+    return await response.json();
+  } catch (e) {
+    return { hasNotionKey: false, hasGithubKey: false, hasDeepseekKey: false };
+  }
+}
+
+export async function updateCredentials(workspaceId: string, keys: { notionApiKey?: string; githubApiKey?: string; deepseekApiKey?: string }): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/credentials`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": getAuthHeader(),
+      "X-Workspace-ID": workspaceId
+    },
+    body: JSON.stringify(keys),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update credentials");
+  }
+}
+export async function login(username: string, password: string) {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: "Login failed" }));
+    throw new Error(err.message);
+  }
+  return response.json();
+}
+
+export async function registerUser(username: string, password: string) {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: "Register failed" }));
+    throw new Error(err.message);
+  }
+  return response.json();
 }

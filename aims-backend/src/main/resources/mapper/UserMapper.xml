@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.aimsgraph.domain.user.mapper.UserMapper">
+    <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO Users (username, password_hash, default_workspace_id, created_at)
+        VALUES (#{username}, #{passwordHash}, #{defaultWorkspaceId}, GETUTCDATE())
+    </insert>
+
+    <select id="findByUsername" resultType="com.aimsgraph.domain.user.Users">
+        SELECT id, username, password_hash as passwordHash, default_workspace_id as defaultWorkspaceId, created_at as createdAt
+        FROM Users
+        WHERE username = #{username}
+    </select>
+</mapper>

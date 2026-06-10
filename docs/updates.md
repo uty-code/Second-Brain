@@ -56,3 +56,11 @@ otionPageId 추가.
 ## 2026-06-10: GitHub MCP Connection Implementation [완료됨]
 - Goal: Implement GitHub MCP connection UI and token verification in GraphCanvas, api.ts, and useAppStore.ts.
 - Status: Done
+
+## 2026-06-10: BYOK DB Encryption Migration [완료됨]
+- Goal: Migrate API tokens from frontend localStorage to backend AES-encrypted DB storage.
+- Status: Done
+
+## 2026-06-10: B2B Login Page & JWT Auth [완료됨]
+- Goal: Implement JWT-based login page and Spring Security on backend for multi-user support.
+- Status: Done

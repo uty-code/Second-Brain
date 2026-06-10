@@ -1,6 +1,7 @@
 package com.aimsgraph.ingest;
 
 import com.aimsgraph.domain.workspace.WorkspaceService;
+import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class LlmService {
     private String wikiBaseDir;
 
     private final WorkspaceService workspaceService;
+    private final WorkspaceCredentialsService credentialsService;
     private final Neo4jClient neo4jClient;
     private final NotionIngestService notionIngestService;
     private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
@@ -37,12 +39,14 @@ public class LlmService {
         return defaultApiKey;
     }
 
-    private ChatLanguageModel getOrCreateModel(String workspaceId, String modelName, String deepseekKey) {
+    private ChatLanguageModel getOrCreateModel(String workspaceId, String modelName) {
         String cacheKey = workspaceId + ":" + (modelName != null ? modelName : "gpt-4o-mini");
         return modelCache.computeIfAbsent(cacheKey, k -> {
             if ("deepseek-v4".equalsIgnoreCase(modelName)) {
                 log.info("Initializing OpenAiChatModel (OpenRouter - DeepSeek) for workspace: {}", workspaceId);
                 String envDeepSeekKey = System.getenv("DEEPSEEK_API_KEY");
+                com.aimsgraph.domain.workspace.WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+                String deepseekKey = creds != null ? creds.getDeepseekApiKey() : null;
                 String finalKey = (deepseekKey != null && !deepseekKey.isBlank()) ? deepseekKey : envDeepSeekKey;
                 if (finalKey == null || finalKey.isBlank()) {
                     log.warn("DeepSeek API Key is missing. Fallback to OpenAI API Key (might fail if not supported).");
@@ -68,7 +72,7 @@ public class LlmService {
 
     public String queryDirect(String workspaceId, String userQuery, String modelName) {
         try {
-            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName, null);
+            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName);
             return model.generate(userQuery);
         } catch (Exception e) {
             log.error("Direct query failed", e);
@@ -82,7 +86,7 @@ public class LlmService {
     public List<ExtractedConcept> extractKnowledge(String eventId, String content, String workspaceId) {
         log.info("Extracting knowledge graph for text in workspace: {}", workspaceId);
         
-        ChatLanguageModel model = getOrCreateModel(workspaceId, "gpt-4o-mini", null);
+        ChatLanguageModel model = getOrCreateModel(workspaceId, "gpt-4o-mini");
 
         String prompt = "You are a Second Brain Zettelkasten assistant.\n" +
                 "Analyze the following text and extract multiple atomic concepts or entities.\n" +
@@ -112,7 +116,7 @@ public class LlmService {
     // ---------------------------------------------------------
     // FILE INGESTION PIPELINE (AnalyzeController)
     // ---------------------------------------------------------
-    public Map<String, Object> analyzeFilesWithOpenAI(org.springframework.web.multipart.MultipartFile[] files, String workspaceId, String modelName, String deepseekKey) throws Exception {
+    public Map<String, Object> analyzeFilesWithOpenAI(org.springframework.web.multipart.MultipartFile[] files, String workspaceId, String modelName) throws Exception {
         if (getApiKey(workspaceId) == null || getApiKey(workspaceId).isEmpty() || getApiKey(workspaceId).equals("demo")) {
             throw new RuntimeException("OpenAI API Key is not configured.");
         }
@@ -156,7 +160,7 @@ public class LlmService {
         return graphData;
     }
 
-    public Map<String, Object> analyzeTextWithOpenAI(String rawSourceText, String workspaceId, String modelName, String deepseekKey) throws Exception {
+    public Map<String, Object> analyzeTextWithOpenAI(String rawSourceText, String workspaceId, String modelName) throws Exception {
         if (getApiKey(workspaceId) == null || getApiKey(workspaceId).isEmpty() || getApiKey(workspaceId).equals("demo")) {
             throw new RuntimeException("OpenAI API Key is not configured.");
         }
@@ -560,17 +564,13 @@ public class LlmService {
     public class GraphTools {
         private final String workspaceId;
         private final boolean useNotion;
-        private final String notionApiKey;
         private final String modelName;
-        private final String deepseekKey;
         public boolean graphUpdated = false;
 
-        public GraphTools(String workspaceId, boolean useNotion, String notionApiKey, String modelName, String deepseekKey) {
+        public GraphTools(String workspaceId, boolean useNotion, String modelName) {
             this.workspaceId = workspaceId;
             this.useNotion = useNotion;
-            this.notionApiKey = notionApiKey;
             this.modelName = modelName;
-            this.deepseekKey = deepseekKey;
         }
 
         @dev.langchain4j.agent.tool.Tool("Search Neo4j graph by keyword and return matching node names/IDs")
@@ -644,7 +644,11 @@ public class LlmService {
                 return "Notion access is toggled off. You cannot use this tool right now.";
             }
             
-            String apiKey = (notionApiKey != null && !notionApiKey.isBlank()) ? notionApiKey : System.getenv("NOTION_API_KEY");
+            com.aimsgraph.domain.workspace.WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+            String apiKey = creds != null ? creds.getNotionApiKey() : null;
+            if (apiKey == null || apiKey.isBlank()) {
+                apiKey = System.getenv("NOTION_API_KEY");
+            }
             if (apiKey == null || apiKey.isBlank()) {
                 return "Notion API key is missing. Cannot access Notion.";
             }
@@ -666,7 +670,7 @@ public class LlmService {
         public String saveToSecondBrain(String topic, String rawContent) {
             log.info("Tool [saveToSecondBrain] topic: {}", topic);
             try {
-                LlmService.this.analyzeTextWithOpenAI(rawContent, workspaceId, modelName, deepseekKey);
+                LlmService.this.analyzeTextWithOpenAI(rawContent, workspaceId, modelName);
                 this.graphUpdated = true;
                 return "Successfully saved '" + topic + "' to Second Brain. Please inform the user that the graph has been automatically updated.";
             } catch (Exception e) {
@@ -701,7 +705,7 @@ public class LlmService {
     // ---------------------------------------------------------
     // GRAPH QUERY PIPELINE
     // ---------------------------------------------------------
-    public AgentResponse query(String workspaceId, String userQuery, String modelName, boolean useNotion, String providedNotionApiKey) {
+    public AgentResponse query(String workspaceId, String userQuery, String modelName, boolean useNotion) {
         log.info("Executing agentic query for workspace: {}", workspaceId);
         String apiKey = getApiKey(workspaceId);
         if (apiKey == null || apiKey.isEmpty() || apiKey.equals("demo")) {
@@ -709,9 +713,8 @@ public class LlmService {
         }
 
         try {
-            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName, null);
-            String deepseekKey = System.getenv("DEEPSEEK_API_KEY");
-            GraphTools tools = new GraphTools(workspaceId, useNotion, providedNotionApiKey, modelName, deepseekKey);
+            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName);
+            GraphTools tools = new GraphTools(workspaceId, useNotion, modelName);
 
             GraphAgent agent = dev.langchain4j.service.AiServices.builder(GraphAgent.class)
                 .chatLanguageModel(model)
