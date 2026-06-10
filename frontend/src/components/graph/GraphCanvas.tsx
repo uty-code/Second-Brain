@@ -6,7 +6,7 @@ import { GraphData, GraphNode, GraphLink } from "@/types/graph";
 import { EmptyState } from "./EmptyState";
 import { UploadCloud, Loader2, Server, CheckCircle2, X, Settings2, GitPullRequest, HardDrive, ChevronDown, ChevronUp, BrainCircuit } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { ingestNotionPage, verifyNotionToken } from "@/services/api";
+import { ingestNotionPage, verifyNotionToken, verifyGithubToken } from "@/services/api";
 
 const NotionIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -16,6 +16,17 @@ const NotionIcon = ({ className }: { className?: string }) => (
     fill="currentColor"
   >
     <path d="M158.9 164.2C173.8 176.3 179.4 175.4 207.5 173.5L471.8 157.6C477.4 157.6 472.7 152 470.9 151.1L426.9 119.4C418.5 112.9 407.3 105.4 385.8 107.3L129.9 125.9C120.6 126.8 118.7 131.5 122.4 135.2L158.8 164.1zM174.8 225.8L174.8 503.9C174.8 518.8 182.3 524.4 199.1 523.5L489.6 506.7C506.4 505.8 508.3 495.5 508.3 483.4L508.3 207.2C508.3 195.1 503.6 188.5 493.3 189.5L189.7 207.1C178.5 208 174.8 213.6 174.8 225.8zM461.5 240.7C463.4 249.1 461.5 257.5 453.1 258.5L439.1 261.3L439.1 466.6C426.9 473.1 415.7 476.9 406.4 476.9C391.4 476.9 387.7 472.2 376.5 458.2L285 314.5L285 453.5L314 460C314 460 314 476.8 290.6 476.8L226.2 480.5C224.3 476.8 226.2 467.4 232.7 465.6L249.5 460.9L249.5 277.1L226.2 275.2C224.3 266.8 229 254.7 242.1 253.7L311.2 249L406.5 394.6L406.5 265.8L382.2 263C380.3 252.7 387.8 245.3 397.1 244.3L461.6 240.5zM108.4 100.7L374.6 81.1C407.3 78.3 415.7 80.2 436.2 95.1L521.2 154.8C535.2 165.1 539.9 167.9 539.9 179.1L539.9 506.7C539.9 527.2 532.4 539.4 506.3 541.2L197.2 559.8C177.6 560.7 168.2 557.9 158 544.9L95.4 463.7C84.2 448.8 79.5 437.6 79.5 424.5L79.5 133.3C79.5 116.5 87 102.5 108.4 100.6z" />
+  </svg>
+);
+
+const GithubIcon = ({ className }: { className?: string }) => (
+  <svg 
+    className={className}
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 640 640"
+    fill="currentColor"
+  >
+    <path d="M237.9 461.4C237.9 463.4 235.6 465 232.7 465C229.4 465.3 227.1 463.7 227.1 461.4C227.1 459.4 229.4 457.8 232.3 457.8C235.3 457.5 237.9 459.1 237.9 461.4zM206.8 456.9C206.1 458.9 208.1 461.2 211.1 461.8C213.7 462.8 216.7 461.8 217.3 459.8C217.9 457.8 216 455.5 213 454.6C210.4 453.9 207.5 454.9 206.8 456.9zM251 455.2C248.1 455.9 246.1 457.8 246.4 460.1C246.7 462.1 249.3 463.4 252.3 462.7C255.2 462 257.2 460.1 256.9 458.1C256.6 456.2 253.9 454.9 251 455.2zM316.8 72C178.1 72 72 177.3 72 316C72 426.9 141.8 521.8 241.5 555.2C254.3 557.5 258.8 549.6 258.8 543.1C258.8 536.9 258.5 502.7 258.5 481.7C258.5 481.7 188.5 496.7 173.8 451.9C173.8 451.9 162.4 422.8 146 415.3C146 415.3 123.1 399.6 147.6 399.9C147.6 399.9 172.5 401.9 186.2 425.7C208.1 464.3 244.8 453.2 259.1 446.6C261.4 430.6 267.9 419.5 275.1 412.9C219.2 406.7 162.8 398.6 162.8 302.4C162.8 274.9 170.4 261.1 186.4 243.5C183.8 237 175.3 210.2 189 175.6C209.9 169.1 258 202.6 258 202.6C278 197 299.5 194.1 320.8 194.1C342.1 194.1 363.6 197 383.6 202.6C383.6 202.6 431.7 169 452.6 175.6C466.3 210.3 457.8 237 455.2 243.5C471.2 261.2 481 275 481 302.4C481 398.9 422.1 406.6 366.2 412.9C375.4 420.8 383.2 435.8 383.2 459.3C383.2 493 382.9 534.7 382.9 542.9C382.9 549.4 387.5 557.3 400.2 555C500.2 521.8 568 426.9 568 316C568 177.3 455.5 72 316.8 72zM169.2 416.9C167.9 417.9 168.2 420.2 169.9 422.1C171.5 423.7 173.8 424.4 175.1 423.1C176.4 422.1 176.1 419.8 174.4 417.9C172.8 416.3 170.5 415.6 169.2 416.9zM158.4 408.8C157.7 410.1 158.7 411.7 160.7 412.7C162.3 413.7 164.3 413.4 165 412C165.7 410.7 164.7 409.1 162.7 408.1C160.7 407.5 159.1 407.8 158.4 408.8zM190.8 444.4C189.2 445.7 189.8 448.7 192.1 450.6C194.4 452.9 197.3 453.2 198.6 451.6C199.9 450.3 199.3 447.3 197.3 445.4C195.1 443.1 192.1 442.8 190.8 444.4zM179.4 429.7C177.8 430.7 177.8 433.3 179.4 435.6C181 437.9 183.7 438.9 185 437.9C186.6 436.6 186.6 434 185 431.7C183.6 429.4 181 428.4 179.4 429.7z"/>
   </svg>
 );
 
@@ -45,12 +56,13 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMcpModal, setShowMcpModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
-  const { setGraphData, currentWorkspaceId, notionApiKey, setNotionApiKey, selectedModel, setSelectedModel, deepseekApiKey, setDeepseekApiKey, isGraphLoading } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'connected' | 'available'>(notionApiKey ? 'connected' : 'available');
+  const { setGraphData, currentWorkspaceId, notionApiKey, setNotionApiKey, githubApiKey, setGithubApiKey, selectedModel, setSelectedModel, deepseekApiKey, setDeepseekApiKey, isGraphLoading } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'connected' | 'available'>(notionApiKey || githubApiKey ? 'connected' : 'available');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
+  const [tempGithubKey, setTempGithubKey] = useState("");
 
   const [isNotionLoading, setIsNotionLoading] = useState(false);
   const [tempDeepseekKey, setTempDeepseekKey] = useState(deepseekApiKey || "");
@@ -74,12 +86,30 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
     }
   };
 
+  const handleVerifyAndSaveGithubToken = async (tokenInput: string, onSuccess: () => void) => {
+    if (!tokenInput) return;
+    setIsVerifying(true);
+    try {
+      const isValid = await verifyGithubToken(tokenInput);
+      if (isValid) {
+        setGithubApiKey(tokenInput);
+        onSuccess();
+      } else {
+        alert("유효하지 않은 GitHub 토큰입니다. 다시 확인해주세요.");
+      }
+    } catch (err) {
+      alert("토큰 검증 중 서버 오류가 발생했습니다.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // 모달을 열 때마다 토큰 유무에 따라 똑똑하게 첫 탭을 결정합니다.
   useEffect(() => {
     if (showMcpModal) {
-      setActiveTab(notionApiKey ? 'connected' : 'available');
+      setActiveTab(notionApiKey || githubApiKey ? 'connected' : 'available');
     }
-  }, [showMcpModal, notionApiKey]);
+  }, [showMcpModal, notionApiKey, githubApiKey]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -248,134 +278,235 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
               
               {/* === CONNECTED TAB === */}
               {activeTab === 'connected' && (
-                <>
-                  {!notionApiKey ? (
+                <div className="space-y-3">
+                  {!notionApiKey && !githubApiKey ? (
                     <div className="flex flex-col items-center justify-center py-10 text-zinc-500">
                       <Server className="w-8 h-8 mb-2 opacity-20" />
                       <p className="text-sm">현재 연결된 서비스가 없습니다.</p>
                     </div>
                   ) : (
-                    <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
-                      <div className="p-4 flex items-center justify-between hover:bg-zinc-800/60 cursor-pointer" onClick={() => setExpandedCard(expandedCard === 'notion_connected' ? null : 'notion_connected')}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
-                             <NotionIcon className="w-5 h-5 text-zinc-300" />
+                    <>
+                      {notionApiKey && (
+                        <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
+                          <div className="p-4 flex items-center justify-between hover:bg-zinc-800/60 cursor-pointer" onClick={() => setExpandedCard(expandedCard === 'notion_connected' ? null : 'notion_connected')}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
+                                 <NotionIcon className="w-5 h-5 text-zinc-300" />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                                  Notion
+                                  <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] border border-zinc-700">Connected</span>
+                                </h4>
+                                <p className="text-xs text-zinc-500">노션 페이지와 데이터베이스 연동</p>
+                              </div>
+                            </div>
+                            <button className="text-zinc-400 hover:text-white">
+                              {expandedCard === 'notion_connected' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
+                            </button>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
-                              Notion
-                              <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] border border-zinc-700">Connected</span>
-                            </h4>
-                            <p className="text-xs text-zinc-500">노션 페이지와 데이터베이스 연동</p>
-                          </div>
-                        </div>
-                        <button className="text-zinc-400 hover:text-white">
-                          {expandedCard === 'notion_connected' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
-                        </button>
-                      </div>
-                      
-                      {expandedCard === 'notion_connected' && (
-                        <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
-                           <div className="mt-3">
-                             <label className="block text-xs text-zinc-400 mb-1">Notion API Token (수정 가능)</label>
-                             <input 
-                               type="password" 
-                               value={tempApiKey || notionApiKey} 
-                               onChange={e => setTempApiKey(e.target.value)} 
-                               className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
-                               placeholder="secret_..." 
-                             />
-                             <button 
-                               onClick={() => { 
-                                 const targetToken = tempApiKey || notionApiKey;
-                                 handleVerifyAndSaveToken(targetToken, () => {
-                                   setExpandedCard(null); 
-                                   setTempApiKey("");
-                                   alert("Notion 토큰이 성공적으로 갱신되었습니다."); 
-                                 });
-                               }} 
-                               disabled={isVerifying || (!tempApiKey && !notionApiKey)}
-                               className="mt-3 w-full py-2 flex items-center justify-center bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
-                             >
-                               {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                               업데이트
-                             </button>
-                           </div>
+                          
+                          {expandedCard === 'notion_connected' && (
+                            <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
+                               <div className="mt-3">
+                                 <label className="block text-xs text-zinc-400 mb-1">Notion API Token (수정 가능)</label>
+                                 <input 
+                                   type="password" 
+                                   value={tempApiKey || notionApiKey} 
+                                   onChange={e => setTempApiKey(e.target.value)} 
+                                   className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
+                                   placeholder="secret_..." 
+                                 />
+                                 <button 
+                                   onClick={() => { 
+                                     const targetToken = tempApiKey || notionApiKey;
+                                     handleVerifyAndSaveToken(targetToken, () => {
+                                       setExpandedCard(null); 
+                                       setTempApiKey("");
+                                       alert("Notion 토큰이 성공적으로 갱신되었습니다."); 
+                                     });
+                                   }} 
+                                   disabled={isVerifying || (!tempApiKey && !notionApiKey)}
+                                   className="mt-3 w-full py-2 flex items-center justify-center bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
+                                 >
+                                   {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                   업데이트
+                                 </button>
+                               </div>
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
+
+                      {githubApiKey && (
+                        <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
+                          <div className="p-4 flex items-center justify-between hover:bg-zinc-800/60 cursor-pointer" onClick={() => setExpandedCard(expandedCard === 'github_connected' ? null : 'github_connected')}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
+                                 <GithubIcon className="w-5 h-5 text-zinc-300" />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                                  GitHub
+                                  <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] border border-zinc-700">Connected</span>
+                                </h4>
+                                <p className="text-xs text-zinc-500">리포지토리 이슈 및 문서 연동</p>
+                              </div>
+                            </div>
+                            <button className="text-zinc-400 hover:text-white">
+                              {expandedCard === 'github_connected' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
+                            </button>
+                          </div>
+                          
+                          {expandedCard === 'github_connected' && (
+                            <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
+                               <div className="mt-3">
+                                 <label className="block text-xs text-zinc-400 mb-1">GitHub PAT Token (수정 가능)</label>
+                                 <input 
+                                   type="password" 
+                                   value={tempGithubKey || githubApiKey} 
+                                   onChange={e => setTempGithubKey(e.target.value)} 
+                                   className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
+                                   placeholder="ghp_..." 
+                                 />
+                                 <button 
+                                   onClick={() => { 
+                                     const targetToken = tempGithubKey || githubApiKey;
+                                     handleVerifyAndSaveGithubToken(targetToken, () => {
+                                       setExpandedCard(null); 
+                                       setTempGithubKey("");
+                                       alert("GitHub 토큰이 성공적으로 갱신되었습니다."); 
+                                     });
+                                   }} 
+                                   disabled={isVerifying || (!tempGithubKey && !githubApiKey)}
+                                   className="mt-3 w-full py-2 flex items-center justify-center bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
+                                 >
+                                   {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                   업데이트
+                                 </button>
+                               </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
+                </div>
               )}
 
               {/* === AVAILABLE TAB === */}
               {activeTab === 'available' && (
                 <>
-                  {!notionApiKey && (
-                    <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
-                      <div className="p-4 flex items-center justify-between hover:bg-zinc-800/60 cursor-pointer" onClick={() => setExpandedCard(expandedCard === 'notion_available' ? null : 'notion_available')}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
-                             <NotionIcon className="w-5 h-5 text-zinc-300" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-zinc-200">Notion</h4>
-                            <p className="text-xs text-zinc-500">노션 페이지와 데이터베이스 연동</p>
-                          </div>
+                  {/* Notion Available Card (Always show) */}
+                  <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
+                    <div 
+                      className={`p-4 flex items-center justify-between ${notionApiKey ? 'cursor-default' : 'hover:bg-zinc-800/60 cursor-pointer'}`} 
+                      onClick={() => !notionApiKey && setExpandedCard(expandedCard === 'notion_available' ? null : 'notion_available')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
+                           <NotionIcon className="w-5 h-5 text-zinc-300" />
                         </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                            Notion
+                            {notionApiKey && <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-400 text-[10px] border border-zinc-700">Connected</span>}
+                          </h4>
+                          <p className="text-xs text-zinc-500">노션 페이지와 데이터베이스 연동</p>
+                        </div>
+                      </div>
+                      {!notionApiKey && (
                         <button className="text-zinc-400 hover:text-white">
                           {expandedCard === 'notion_available' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
                         </button>
-                      </div>
-                      
-                      {expandedCard === 'notion_available' && (
-                        <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
-                           <div className="mt-3">
-                             <label className="block text-xs text-zinc-400 mb-1">Notion API Token 추가</label>
-                             <input 
-                               type="password" 
-                               value={tempApiKey} 
-                               onChange={e => setTempApiKey(e.target.value)} 
-                               className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
-                               placeholder="secret_..." 
-                             />
-                             <button 
-                               onClick={() => { 
-                                 handleVerifyAndSaveToken(tempApiKey, () => {
-                                   setExpandedCard(null);
-                                   setActiveTab('connected'); 
-                                   setTempApiKey("");
-                                   alert("Notion이 성공적으로 연결되었습니다."); 
-                                 });
-                               }} 
-                               disabled={isVerifying || !tempApiKey}
-                               className="mt-3 w-full flex items-center justify-center py-2 bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
-                             >
-                               {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                               새로 연결하기
-                             </button>
-                           </div>
-                        </div>
                       )}
                     </div>
-                  )}
+                    
+                    {expandedCard === 'notion_available' && !notionApiKey && (
+                      <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
+                         <div className="mt-3">
+                           <label className="block text-xs text-zinc-400 mb-1">Notion API Token 추가</label>
+                           <input 
+                             type="password" 
+                             value={tempApiKey} 
+                             onChange={e => setTempApiKey(e.target.value)} 
+                             className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
+                             placeholder="secret_..." 
+                           />
+                           <button 
+                             onClick={() => { 
+                               handleVerifyAndSaveToken(tempApiKey, () => {
+                                 setExpandedCard(null);
+                                 setActiveTab('connected'); 
+                                 setTempApiKey("");
+                                 alert("Notion이 성공적으로 연결되었습니다."); 
+                               });
+                             }} 
+                             disabled={isVerifying || !tempApiKey}
+                             className="mt-3 w-full flex items-center justify-center py-2 bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
+                           >
+                             {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                             새로 연결하기
+                           </button>
+                         </div>
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Github Card (Soon) */}
-                  <div className="bg-zinc-800/20 border border-zinc-800 rounded-lg overflow-hidden opacity-60">
-                    <div className="p-4 flex items-center justify-between">
+                  {/* Github Available Card */}
+                  <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg overflow-hidden transition-all">
+                    <div 
+                      className={`p-4 flex items-center justify-between ${githubApiKey ? 'cursor-default' : 'hover:bg-zinc-800/60 cursor-pointer'}`} 
+                      onClick={() => !githubApiKey && setExpandedCard(expandedCard === 'github_available' ? null : 'github_available')}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-800">
-                           <GitPullRequest className="w-5 h-5 text-zinc-500" />
+                        <div className="w-10 h-10 rounded-md bg-zinc-900 flex items-center justify-center border border-zinc-700">
+                           <GithubIcon className="w-5 h-5 text-zinc-300" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
                             GitHub
-                            <span className="px-1.5 py-0.5 rounded-full bg-zinc-700 text-zinc-400 text-[10px]">Soon</span>
+                            {githubApiKey && <span className="px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-400 text-[10px] border border-zinc-700">Connected</span>}
                           </h4>
-                          <p className="text-xs text-zinc-600">리포지토리 이슈 및 문서 연동</p>
+                          <p className="text-xs text-zinc-500">리포지토리 이슈 및 문서 연동</p>
                         </div>
                       </div>
+                      {!githubApiKey && (
+                        <button className="text-zinc-400 hover:text-white">
+                          {expandedCard === 'github_available' ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
+                        </button>
+                      )}
                     </div>
+                    
+                    {expandedCard === 'github_available' && !githubApiKey && (
+                      <div className="p-4 pt-0 border-t border-zinc-800/50 bg-zinc-800/20 animate-in slide-in-from-top-2 duration-200">
+                         <div className="mt-3">
+                           <label className="block text-xs text-zinc-400 mb-1">GitHub PAT Token 추가</label>
+                           <input 
+                             type="password" 
+                             value={tempGithubKey} 
+                             onChange={e => setTempGithubKey(e.target.value)} 
+                             className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-200 outline-none focus:border-zinc-500" 
+                             placeholder="ghp_..." 
+                           />
+                           <button 
+                             onClick={() => { 
+                               handleVerifyAndSaveGithubToken(tempGithubKey, () => {
+                                 setExpandedCard(null);
+                                 setActiveTab('connected'); 
+                                 setTempGithubKey("");
+                                 alert("GitHub이 성공적으로 연결되었습니다."); 
+                               });
+                             }} 
+                             disabled={isVerifying || !tempGithubKey}
+                             className="mt-3 w-full flex items-center justify-center py-2 bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-sm font-semibold rounded-md transition-colors"
+                           >
+                             {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                             새로 연결하기
+                           </button>
+                         </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Google Drive Card (Soon) */}

@@ -64,6 +64,8 @@ interface AppState {
   // External APIs
   notionApiKey: string;
   setNotionApiKey: (key: string) => void;
+  githubApiKey: string;
+  setGithubApiKey: (key: string) => void;
 
   // AI Model Settings
   selectedModel: 'gpt-4o-mini' | 'deepseek-v4';
@@ -111,6 +113,8 @@ export const useAppStore = create<AppState>()(
       // External APIs
       notionApiKey: "",
       setNotionApiKey: (key) => set({ notionApiKey: key }),
+      githubApiKey: "",
+      setGithubApiKey: (key) => set({ githubApiKey: key }),
 
       // AI Model Settings
       selectedModel: 'gpt-4o-mini',
@@ -125,9 +129,10 @@ export const useAppStore = create<AppState>()(
         chatMessages: state.chatMessages, 
         currentWorkspaceId: state.currentWorkspaceId,
         notionApiKey: state.notionApiKey,
+        githubApiKey: state.githubApiKey,
         selectedModel: state.selectedModel,
         deepseekApiKey: state.deepseekApiKey
-      }), // Persist graphData, chatMessages, workspace, notionApiKey, and AI settings
+      }), // Persist graphData, chatMessages, workspace, notionApiKey, githubApiKey, and AI settings
     }
   )
 );

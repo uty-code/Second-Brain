@@ -52,3 +52,7 @@ otionPageId 추가.
 ## 2026-06-10: RightPanel Resize Feature
 - Issue: The user wants to resize the right panel (chat/viewer) by dragging its left border.
 - Goal: Implement drag-to-resize functionality in RightPanel.tsx using React state and mouse events.
+
+## 2026-06-10: GitHub MCP Connection Implementation [완료됨]
+- Goal: Implement GitHub MCP connection UI and token verification in GraphCanvas, api.ts, and useAppStore.ts.
+- Status: Done

@@ -259,3 +259,16 @@ export async function verifyNotionToken(apiKey: string): Promise<boolean> {
   const data = await response.json();
   return data.valid === true;
 }
+
+export async function verifyGithubToken(token: string): Promise<boolean> {
+  try {
+    const response = await fetch("https://api.github.com/user", {
+      headers: {
+        "Authorization": `token ${token}`
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
