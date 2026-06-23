@@ -9,23 +9,26 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isLoggedIn } = useAppStore();
   const [mounted, setMounted] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    useAppStore.persist.onFinishHydration(() => setHasHydrated(true));
+    setHasHydrated(useAppStore.persist.hasHydrated());
   }, []);
 
   useEffect(() => {
-    if (mounted) {
+    if (mounted && hasHydrated) {
       if (!isLoggedIn && pathname !== '/login') {
         router.push('/login');
       } else if (isLoggedIn && pathname === '/login') {
         router.push('/');
       }
     }
-  }, [isLoggedIn, pathname, router, mounted]);
+  }, [isLoggedIn, pathname, router, mounted, hasHydrated]);
 
-  // Avoid hydration mismatch by not rendering until mounted
-  if (!mounted) return null;
+  // Hydration과 클라이언트 마운트가 모두 완료될 때까지 렌더링 대기
+  if (!mounted || !hasHydrated) return null;
 
   // 리다이렉션 진행 중에는 자식 컴포넌트 렌더링을 차단하여 불필요한 API 호출(403) 방어
   if (!isLoggedIn && pathname !== '/login') {
