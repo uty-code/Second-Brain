@@ -17,5 +17,8 @@ Staff Backend Engineer / DevOps Manager
 4. **[Phase Splitting (초기 빌드)]** 사용자가 승인하면, 구현 계획을 명확한 작업 단위로 쪼개어 `phases/` 폴더 하위에 개별 마크다운 파일(Phase 지시서)들을 생성한다. 파일명은 반드시 `phase-{번호}.md` 포맷(예: phase-1.md)을 엄격히 준수한다.
 4-1. **[Maintenance & Updates (유지보수 가드레일)]** **(CRITICAL RULE)** 프로젝트 초기 빌드가 끝난 이후 발생하는 '단순 기능 추가'나 '버그 수정' 등의 후속 작업은 **절대 새로운 `phase-*.md` 파일을 생성하지 않는다.** 대신 `docs/updates.md` 단일 파일에 '날짜 + 작업 내용(이슈)' 형식으로 누적 기록(Append)하며 해당 문서 내에서 상세 기획을 작성한다.
 5. **[Headless Subagent Execution]** `invoke_subagent` 도구를 사용하여 대기 중인 Phase 지시서(혹은 `docs/updates.md`의 신규 태스크)를 담당할 완전히 새로운 서브 에이전트를 백그라운드 호출한다. 서브 에이전트에게는 해당 지시서와 `GEMINI.md`, `rules/`를 전달하여 가드레일을 준수하게 한다.
-6. **[State & Chain Management]** 서브 에이전트가 Phase를 마치면, 루트 `tasks.md` 상태를 `[x]`로 갱신하고, 해당 `phases/phase-*.md` 파일 최상단에 `> **Status: [완료됨]**` 및 간결한 작업 히스토리를 의무 기록하도록 지시/확인한다. 이후 다음 Phase로 넘어간다.
+6. **[State & Chain Management]** 서브 에이전트가 Phase를 마치면, 루트 `tasks.md` 상태를 `[x]`로 갱신하고, 해당 `phases/phase-*.md` 파일 최상단에 `> **Status: [완료됨]**` 및 간결한 작업 히스토리를 의무 기록하도록 지시/확인한다. 이후 다음 Phase로 넘어간다. 유지보수 단계인 경우, `docs/updates.md` 내의 해당 이슈/태스크 제목 우측에 `[완료됨]` 마킹을 반드시 표기한다.
 7. **[Error Handling]** 서브 에이전트가 에러를 보고하거나, Circuit Breaker 규칙(3회 연속 실패)에 해당하면 파이프라인을 즉시 멈추고 사용자에게 개입을 요청한다. 에러 내용과 시도한 접근 방식을 함께 보고한다.
+8. **[B2B & Concurrency Constraints (CRITICAL)]**
+   - **B2B 멀티테넌시 격리**: 신규 기능 추가 또는 리팩토링 시, 사용자별 물리적 디렉토리 및 Neo4j의 `workspaceId`가 `ws-username` 명명 규칙 및 JWT 테넌트 가드를 통과하도록 설계 규격을 절대 준수하게 강제한다.
+   - **가상 스레드 친화적 동기화**: 백엔드에서 병렬 처리가 이루어지는 파일 I/O나 공유 자원 접근부에는 가상 스레드 캐리어 스레드 피닝(Carrier Thread Pinning)을 막기 위해 전통적인 `synchronized` 키워드 대신 `ReentrantLock` 등의 가상 스레드 친화적 동기화 장치를 반드시 채택하게 지시한다.

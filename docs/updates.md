@@ -80,7 +80,7 @@ otionPageId 추가.
 ## 2026-06-11: B2B 계정 영구 탈퇴 기능 구현 [완료됨]
 - Goal: B2B 보안 정책 및 데이터 격리 파기 요구사항에 맞추어, 프론트엔드 탈퇴 확인 경고 모달 UI 및 백엔드 DELETE /api/v1/auth/account API(Neo4j 노드 영구 삭제, 물리 마크다운 디렉토리 재귀 완전 삭제, RDBMS User 정보 삭제 일괄 트랜잭션 처리) 구현.
 
-## 2026-06-23: AI 모델 선택 개선 및 가상 스레드 위키 쓰기 동시성 제어 [진행중]
+## 2026-06-23: AI 모델 선택 개선 및 가상 스레드 위키 쓰기 동시성 제어 [완료됨]
 - **Goal:** 위키 페이지 생성 시 사용자가 선택한 AI 모델(DeepSeek v4 등)이 반영되지 않던 버그를 수정하고, 가상 스레드 환경에서 동일 위키 파일 동시 쓰기로 인한 Race Condition을 방지하도록 ReentrantLock 기반의 파일 락 장치 도입.
 - **Affected Files:**
   - c:\second brain\aims-backend\src\main\java\com\aimsgraph\ingest\LlmService.java
