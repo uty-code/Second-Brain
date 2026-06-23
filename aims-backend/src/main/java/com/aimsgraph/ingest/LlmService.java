@@ -693,6 +693,7 @@ public class LlmService {
                 .chatLanguageModel(model)
                 .chatMemory(dev.langchain4j.memory.chat.MessageWindowChatMemory.withMaxMessages(10))
                 .tools(tools)
+                .maxSequentialToolExecutions(50)
                 .build();
 
             String awarenessPrompt;
