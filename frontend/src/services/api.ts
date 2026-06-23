@@ -14,6 +14,24 @@ function getAuthHeader() {
   return `Bearer ${token || 'MVP_DUMMY_TOKEN'}`;
 }
 
+async function customFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const response = await fetch(url, options);
+  if (response.status === 401 || response.status === 403) {
+    console.warn("Session expired or unauthorized. Performing auto-logout.");
+    const store = useAppStore.getState();
+    if (store.isLoggedIn) {
+      store.setJwtToken(null);
+      store.setIsLoggedIn(false);
+      store.setCurrentUser("");
+      store.setCurrentWorkspaceId("");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
+  }
+  return response;
+}
+
 export class SSEClient {
   private eventSource: EventSource | null = null;
   private url: string;
@@ -82,7 +100,7 @@ export function useMCPConnection() {
 
 export async function fetchWorkspaces(): Promise<string[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/v1/workspaces/list`, {
+    const response = await customFetch(`${API_BASE_URL}/v1/workspaces/list`, {
       method: "GET",
       headers: {
         "Authorization": getAuthHeader()
@@ -102,7 +120,7 @@ export async function fetchWorkspaces(): Promise<string[]> {
 
 export async function fetchWorkspaceGraph(workspaceId: string): Promise<{ nodes: any[]; links: any[] }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/graph`, {
+    const response = await customFetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/graph`, {
       method: "GET",
       headers: {
         "Authorization": getAuthHeader(),
@@ -123,7 +141,7 @@ export async function fetchWorkspaceGraph(workspaceId: string): Promise<{ nodes:
 
 export async function sendQuery(query: string, workspaceId: string = "default-workspace", file_back: boolean = false, model: string = "gpt-4o-mini", useNotion: boolean = false): Promise<{ answer: string; insightFile?: string; graphUpdated?: boolean }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/v1/query`, {
+    const response = await customFetch(`${API_BASE_URL}/v1/query`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -151,7 +169,7 @@ export async function analyzeFiles(files: File[], workspaceId: string = "default
     formData.append("files", file);
   });
 
-  const response = await fetch(`${API_BASE_URL}/v1/analyze`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/analyze`, {
     method: "POST",
     headers: {
       "Authorization": getAuthHeader(),
@@ -171,7 +189,7 @@ export async function analyzeFiles(files: File[], workspaceId: string = "default
 
 export async function fetchWikiPageContent(conceptName: string, workspaceId: string = "default-workspace"): Promise<{ content: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/v1/wiki/${conceptName}`, {
+    const response = await customFetch(`${API_BASE_URL}/v1/wiki/${conceptName}`, {
       method: "GET",
       headers: {
         "Authorization": getAuthHeader(),
@@ -194,7 +212,7 @@ export async function fetchWikiPageContent(conceptName: string, workspaceId: str
 }
 
 export async function deleteWorkspaceData(workspaceId: string): Promise<{ status: string; deletedNodes: number; deletedFiles: number }> {
-  const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/data`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/data`, {
     method: "DELETE",
     headers: {
       "Authorization": getAuthHeader(),
@@ -211,7 +229,7 @@ export async function deleteWorkspaceData(workspaceId: string): Promise<{ status
 }
 
 export async function createWorkspace(name: string): Promise<{ status: string; workspaceId: string }> {
-  const response = await fetch(`${API_BASE_URL}/v1/workspaces`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/workspaces`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -229,7 +247,7 @@ export async function createWorkspace(name: string): Promise<{ status: string; w
 }
 
 export async function ingestNotionPage(pageId: string, workspaceId: string = "default-workspace", model: string = "gpt-4o-mini"): Promise<{ nodes: any[]; links: any[] }> {
-  const response = await fetch(`${API_BASE_URL}/v1/analyze/notion`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/analyze/notion`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -249,7 +267,7 @@ export async function ingestNotionPage(pageId: string, workspaceId: string = "de
 }
 
 export async function verifyNotionToken(workspaceId: string): Promise<boolean> {
-  const response = await fetch(`${API_BASE_URL}/v1/analyze/notion/verify`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/analyze/notion/verify`, {
     method: "POST",
     headers: {
       "Authorization": getAuthHeader(),
@@ -280,7 +298,7 @@ export async function verifyGithubToken(token: string): Promise<boolean> {
 
 export async function fetchCredentialsStatus(workspaceId: string): Promise<{ hasNotionKey: boolean; hasGithubKey: boolean; hasDeepseekKey: boolean }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/credentials/status`, {
+    const response = await customFetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/credentials/status`, {
       method: "GET",
       headers: {
         "Authorization": getAuthHeader(),
@@ -297,7 +315,7 @@ export async function fetchCredentialsStatus(workspaceId: string): Promise<{ has
 }
 
 export async function updateCredentials(workspaceId: string, keys: { notionApiKey?: string; githubApiKey?: string; deepseekApiKey?: string }): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/credentials`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/workspaces/${workspaceId}/credentials`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -337,7 +355,7 @@ export async function registerUser(username: string, password: string) {
 }
 
 export async function logoutUser() {
-  const response = await fetch(`${API_BASE_URL}/v1/auth/logout`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/auth/logout`, {
     method: "POST",
     headers: {
       "Authorization": getAuthHeader()
@@ -349,7 +367,7 @@ export async function logoutUser() {
 }
 
 export async function deleteAccount() {
-  const response = await fetch(`${API_BASE_URL}/v1/auth/account`, {
+  const response = await customFetch(`${API_BASE_URL}/v1/auth/account`, {
     method: "DELETE",
     headers: {
       "Authorization": getAuthHeader()
