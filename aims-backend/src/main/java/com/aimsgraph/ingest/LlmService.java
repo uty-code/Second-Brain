@@ -63,6 +63,7 @@ public class LlmService {
                         .baseUrl("https://openrouter.ai/api/v1")
                         .modelName("deepseek/deepseek-v4-pro")
                         .temperature(0.2)
+                        .maxTokens(4000)
                         .build();
             } else {
                 String apiKey = getApiKey(workspaceId);
@@ -351,11 +352,13 @@ public class LlmService {
                                     }
                                 }
 
-                                Map<String, Object> requestBody = Map.of(
-                                        "model", requestModelName,
-                                        "messages", messages,
-                                        "response_format", responseFormat
-                                  );
+                                 java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
+                                 requestBody.put("model", requestModelName);
+                                 requestBody.put("messages", messages);
+                                 requestBody.put("response_format", responseFormat);
+                                 if ("deepseek-v4".equalsIgnoreCase(modelName)) {
+                                     requestBody.put("max_tokens", 4000);
+                                 }
 
                                 String jsonBody = mapper.writeValueAsString(requestBody);
                                 java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()

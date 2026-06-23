@@ -29,4 +29,9 @@
 
 ### Auto-Documentation Guard (자동 문서화 규칙)
 - 아키텍처, 데이터베이스 스키마, API 엔드포인트 등 시스템의 주요 변경사항이 발생한 경우, **사용자가 별도로 지시하지 않더라도 에이전트가 스스로 판단하여 관련된 `docs/` 폴더 내의 문서(`ARCHITECTURE.md`, `API_SPEC.md`, `ADR.md` 등)를 즉각 업데이트할 것.**
-- 새 세션이 열렸을 때 문서만 읽고도 현재 시스템 상태를 100% 파악할 수 있도록 최신 상태 유지를 최우선 과제로 삼는다.
+- 새 세션이 열렸을 때 문서만 읽고도 현재 시스템 상태 to 100% 파악할 수 있도록 최신 상태 유지를 최우선 과제로 삼는다.
+
+### Harness Engine Guard
+- **하네스 용어 혼동 방지**: '하네스(Harness)' 혹은 '하네스 프레임워크' 관련 질문이나 태스크를 수행할 때, 절대 일반적인 QA 테스트 자동화/테스트 케이스 작성용 테스트 하네스로 혼동하지 말 것.
+- 본 워크스페이스에서 하네스는 **'기획 분석 후 자율 코딩을 지시하는 Headless 서브 에이전트 오케스트레이션 엔진'**을 의미한다.
+- 하네스 관련 문서화 또는 워크플로우 지시서는 반드시 `GEMINI.md` 및 `.agents/skills/harness/SKILL.md`에 명시된 규칙(Context Ingestion -> Goal Alignment -> Phase Splitting/updates.md Append -> Subagent Invoke)을 준수하여 작성되어야 한다.
