@@ -39,7 +39,7 @@ export default function LoginPage() {
         setIsLoggedIn(true);
         setCurrentUser(data.username);
         if (data.workspaceId) setCurrentWorkspaceId(data.workspaceId);
-        router.push('/');
+        window.location.href = '/';
       } else {
         await registerUser(username, password);
         setIsLogin(true);

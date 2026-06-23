@@ -57,7 +57,7 @@ public class IngestionWorker {
                 }
             }
             if (!nodes.isEmpty()) {
-                llmService.generateWikiPages(java.util.Map.of("nodes", nodes), contentToProcess, tenantId);
+                llmService.generateWikiPages(java.util.Map.of("nodes", nodes), contentToProcess, tenantId, "gpt-4o-mini");
             }
             
             RLock indexLock = redissonClient.getLock("wiki:" + tenantId + ":index.md");

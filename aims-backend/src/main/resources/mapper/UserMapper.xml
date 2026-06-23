@@ -13,4 +13,8 @@
         FROM Users
         WHERE username = #{username}
     </select>
+
+    <delete id="deleteByUsername">
+        DELETE FROM Users WHERE username = #{username}
+    </delete>
 </mapper>

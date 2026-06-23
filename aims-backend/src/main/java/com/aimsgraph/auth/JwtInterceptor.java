@@ -29,6 +29,16 @@ public class JwtInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (redissonClient.getBucket("blacklist:" + token).isExists()) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("Unauthorized: Token is blacklisted");
+                return false;
+            }
+        }
+
         String workspaceId = null;
         if (RequestContextHolder.getRequestAttributes() != null) {
             workspaceId = (String) RequestContextHolder.getRequestAttributes().getAttribute(

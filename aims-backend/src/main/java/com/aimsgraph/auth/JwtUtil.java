@@ -42,6 +42,10 @@ public class JwtUtil {
         return getClaims(token).get("workspaceId", String.class);
     }
 
+    public Date getExpirationFromToken(String token) {
+        return getClaims(token).getExpiration();
+    }
+
     private Claims getClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)

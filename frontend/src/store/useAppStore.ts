@@ -40,6 +40,12 @@ interface AppState {
   selectedNodeId: string | null;
   setSelectedNodeId: (id: string | null) => void;
 
+  // AI Gaze Tracking
+  activeAiNodes: string[];
+  addActiveAiNode: (id: string) => void;
+  removeActiveAiNode: (id: string) => void;
+  clearActiveAiNodes: () => void;
+
   // Layout
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
@@ -81,14 +87,24 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       // Workspaces
-      workspaces: ["default-workspace"],
+      workspaces: [],
       setWorkspaces: (workspaces) => set({ workspaces }),
-      currentWorkspaceId: "default-workspace",
+      currentWorkspaceId: "",
       setCurrentWorkspaceId: (id) => set({ currentWorkspaceId: id, graphData: null, selectedNodeId: null, chatMessages: [{ id: "1", role: "assistant", content: "무엇을 도와드릴까요? 지식창고를 기반으로 답변해 드립니다." }] }),
 
       // Selection
       selectedNodeId: null,
       setSelectedNodeId: (id) => set({ selectedNodeId: id, rightPanelTab: "viewer", isRightPanelOpen: true }),
+
+      // AI Gaze Tracking
+      activeAiNodes: [],
+      addActiveAiNode: (id) => set((state) => ({ 
+        activeAiNodes: state.activeAiNodes.includes(id) ? state.activeAiNodes : [...state.activeAiNodes, id] 
+      })),
+      removeActiveAiNode: (id) => set((state) => ({ 
+        activeAiNodes: state.activeAiNodes.filter(n => n !== id) 
+      })),
+      clearActiveAiNodes: () => set({ activeAiNodes: [] }),
 
       // Layout
       isSidebarOpen: true,

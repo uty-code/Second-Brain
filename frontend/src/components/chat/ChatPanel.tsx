@@ -7,7 +7,7 @@ import { useAppStore, Message } from "@/store/useAppStore";
 import { MarkdownViewer } from "@/components/viewer/MarkdownViewer";
 
 export function ChatPanel() {
-  const { chatMessages: messages, setChatMessages: setMessages, currentWorkspaceId, selectedModel, setSelectedNodeId, credentialsStatus, setIsGraphLoading } = useAppStore();
+  const { chatMessages: messages, setChatMessages: setMessages, currentWorkspaceId, selectedModel, setSelectedNodeId, credentialsStatus, setIsGraphLoading, clearActiveAiNodes } = useAppStore();
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useNotion, setUseNotion] = useState(false);
@@ -66,6 +66,7 @@ export function ChatPanel() {
     } finally {
       setIsSubmitting(false);
       setIsGraphLoading(false);
+      clearActiveAiNodes();
     }
   };
 

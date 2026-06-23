@@ -27,6 +27,9 @@ public class LlmServiceTest {
     private WorkspaceService workspaceService;
 
     @Mock
+    private com.aimsgraph.domain.workspace.WorkspaceCredentialsService credentialsService;
+
+    @Mock
     private ChatLanguageModel chatLanguageModel;
 
     @Mock

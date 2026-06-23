@@ -56,7 +56,7 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMcpModal, setShowMcpModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
-  const { setGraphData, currentWorkspaceId, selectedModel, setSelectedModel, isGraphLoading, credentialsStatus, setCredentialsStatus } = useAppStore();
+  const { setGraphData, currentWorkspaceId, selectedModel, setSelectedModel, isGraphLoading, credentialsStatus, setCredentialsStatus, activeAiNodes, addActiveAiNode, removeActiveAiNode, jwtToken } = useAppStore();
   const [activeTab, setActiveTab] = useState<'connected' | 'available'>('available');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
@@ -126,6 +126,53 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    if (!currentWorkspaceId) return;
+
+    // JWT 토큰이 필요한 경우 쿠키나 로컬스토리지 처리가 복잡할 수 있으나, 현재 백엔드는 workspaceId 기반 SSE입니다.
+    // 백엔드의 NotificationController에 맞게 EventSource 연결
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+    const url = jwtToken 
+      ? `${API_BASE_URL}/v1/notifications/sse?token=${jwtToken}&workspaceId=${currentWorkspaceId}` 
+      : `${API_BASE_URL}/v1/notifications/sse?token=MVP_DUMMY_TOKEN&workspaceId=${currentWorkspaceId}`;
+    const eventSource = new EventSource(url);
+
+    let lastCameraMoveTime = 0;
+    const CAMERA_THROTTLE_MS = 1500;
+
+    eventSource.addEventListener('ai_reading', (event) => {
+      try {
+        const parsedData = JSON.parse(event.data);
+        if (parsedData && parsedData.nodeId) {
+          addActiveAiNode(parsedData.nodeId);
+          
+          if (fgRef.current && dataRef.current) {
+            const node = dataRef.current.nodes.find(n => n.id === parsedData.nodeId);
+            if (node && node.x !== undefined && node.y !== undefined) {
+              const now = Date.now();
+              if (now - lastCameraMoveTime > CAMERA_THROTTLE_MS) {
+                lastCameraMoveTime = now;
+                fgRef.current.centerAt(node.x, node.y, 1000);
+                fgRef.current.zoom(5, 1000);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse SSE ai_reading event", e);
+      }
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [currentWorkspaceId, addActiveAiNode, jwtToken]);
+
   const handleNodeHover = useCallback((node: GraphNode | null) => {
     setHoverNode(node || null);
     if (document.body) {
@@ -164,6 +211,7 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
       if (node.x === undefined || node.y === undefined) return;
       
       const isHovered = hoverNode?.id === node.id;
+      const isActiveAiNode = activeAiNodes.includes(node.id);
       const isConnected =
         hoverNode &&
         links.some((link) => {
@@ -175,15 +223,26 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
           );
         });
       
-      const isFocused = !hoverNode || isHovered || isConnected;
+      const isFocused = !hoverNode || isHovered || isConnected || isActiveAiNode;
       const opacity = isFocused ? 1 : 0.2;
 
       const size = node.val ? Math.min(8, Math.max(4, node.val)) : 4;
 
       ctx.beginPath();
       ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-      ctx.fillStyle = `rgba(228, 228, 231, ${opacity})`; // #E4E4E7 (zinc-200)
+      ctx.fillStyle = isActiveAiNode 
+        ? `rgba(16, 185, 129, ${opacity})` // Emerald 500 for AI active node
+        : `rgba(228, 228, 231, ${opacity})`; // Default zinc-200
       ctx.fill();
+
+      // 글로우 효과 (AI 읽는 중)
+      if (isActiveAiNode) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI, false);
+        ctx.strokeStyle = `rgba(16, 185, 129, 0.6)`; // 에메랄드 글로우
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
 
       if (globalScale >= 2 || isFocused) {
         const fontSize = 10 / globalScale;
@@ -191,14 +250,16 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         
-        ctx.fillStyle = isHovered 
-          ? `rgba(255, 255, 255, ${opacity})` // #FFFFFF on hover
-          : `rgba(161, 161, 170, ${opacity})`; // #A1A1AA (zinc-400)
+        ctx.fillStyle = isActiveAiNode
+          ? `rgba(16, 185, 129, 1)` // Emerald 500 for AI text
+          : isHovered 
+            ? `rgba(255, 255, 255, ${opacity})` // #FFFFFF on hover
+            : `rgba(161, 161, 170, ${opacity})`; // #A1A1AA (zinc-400)
           
         ctx.fillText(node.name || node.id, node.x, node.y + size + fontSize + 2);
       }
     },
-    [hoverNode, links]
+    [hoverNode, links, activeAiNodes]
   );
 
   const linkColor = useCallback(
@@ -220,9 +281,23 @@ export function GraphCanvas({ data, onNodeClick, onFileDrop, isUploading }: Grap
   const sanitizedData = useMemo(() => {
     if (!data) return null;
     return { nodes: data.nodes, links };
-  }, [data, links]);
+  }, [data, links, activeAiNodes]);
 
   if (!data || data.nodes.length === 0) {
+    if (isGraphLoading) {
+      return (
+        <div id="graph-container" className="w-full h-full bg-zinc-900 overflow-hidden relative">
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-zinc-900/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center justify-center p-10 w-full max-w-lg border border-dashed border-zinc-700 bg-zinc-800/20 rounded-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <Loader2 className="w-10 h-10 text-zinc-400 mb-3 animate-spin" />
+              <p className="text-zinc-200 text-center text-sm font-medium mb-1">
+                지식 그래프를 불러오는 중...
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div id="graph-container" className="w-full h-full bg-zinc-900 overflow-hidden">
         <EmptyState onSubmit={onFileDrop || (() => {})} isUploading={isUploading} />

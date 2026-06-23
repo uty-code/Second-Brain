@@ -14,5 +14,7 @@ if ($port8080) {
 # 백엔드 디렉터리로 이동하여 실행
 Set-Location "c:\second brain\aims-backend"
 # Ensure DEEPSEEK_API_KEY is set in your actual environment, do not hardcode it here.
+$env:SPRING_REDIS_PORT = "6300"
+$env:SPRING_DATA_REDIS_PORT = "6300"
 Write-Host "Starting Backend via ./gradlew bootRun..." -ForegroundColor Cyan
 ./gradlew bootRun

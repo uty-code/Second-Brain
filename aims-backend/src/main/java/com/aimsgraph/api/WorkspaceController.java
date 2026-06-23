@@ -40,37 +40,49 @@ public class WorkspaceController {
     
     @GetMapping("/list")
     public ResponseEntity<java.util.List<String>> listWorkspaces() {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        if (username == null || username.equals("anonymousUser") || username.equals("dummy_user")) {
+            return ResponseEntity.ok(java.util.List.of());
+        }
+
         Path path = Paths.get(wikiBaseDir);
         if (!Files.exists(path) || !Files.isDirectory(path)) {
-            return ResponseEntity.ok(java.util.List.of("default-workspace"));
+            return ResponseEntity.ok(java.util.List.of());
         }
+
         try (Stream<Path> stream = Files.list(path)) {
             java.util.List<String> dirs = stream
                     .filter(Files::isDirectory)
                     .map(Path::getFileName)
                     .map(Path::toString)
+                    .filter(name -> name.equals("ws-" + username) || name.startsWith(username + "_"))
                     .collect(Collectors.toList());
-            if (dirs.isEmpty()) {
-                return ResponseEntity.ok(java.util.List.of("default-workspace"));
-            }
+                    
             return ResponseEntity.ok(dirs);
         } catch (IOException e) {
-            return ResponseEntity.ok(java.util.List.of("default-workspace"));
+            return ResponseEntity.ok(java.util.List.of());
         }
     }
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> createWorkspace(@RequestBody Map<String, String> body) {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        if (username == null || username.equals("anonymousUser") || username.equals("dummy_user")) {
+            return ResponseEntity.status(401).body(Map.of("error", "UNAUTHORIZED", "message", "User must be logged in to create a workspace"));
+        }
+
         String name = body.get("name");
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "INVALID_NAME", "message", "Workspace name is required"));
         }
 
         // Sanitize: only allow lowercase letters, numbers, hyphens
-        String sanitized = name.trim().toLowerCase().replaceAll("[^a-z0-9\\-]", "-").replaceAll("-+", "-").replaceAll("^-|-$", "");
-        if (sanitized.isEmpty()) {
+        String sanitizedSuffix = name.trim().toLowerCase().replaceAll("[^a-z0-9\\-]", "-").replaceAll("-+", "-").replaceAll("^-|-$", "");
+        if (sanitizedSuffix.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "INVALID_NAME", "message", "Workspace name must contain at least one alphanumeric character"));
         }
+
+        String sanitized = username + "_" + sanitizedSuffix;
 
         Path wsPath = Paths.get(wikiBaseDir, sanitized);
         if (Files.exists(wsPath)) {

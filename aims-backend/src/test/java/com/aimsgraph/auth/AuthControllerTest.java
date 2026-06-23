@@ -26,13 +26,16 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private org.redisson.api.RedissonClient redissonClient;
+
     @Test
     void testRegisterAndLogin() throws Exception {
         String username = "testuser";
         String password = "password123";
 
         // 1. Register
-        mockMvc.perform(post("/v1/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(Map.of(
                         "username", username,
@@ -42,7 +45,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("User registered successfully"));
 
         // 2. Login
-        mockMvc.perform(post("/v1/auth/login")
+        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(Map.of(
                         "username", username,
@@ -50,6 +53,18 @@ class AuthControllerTest {
                 ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
-                .andExpect(jsonPath("$.workspaceId").exists());
+                .andExpect(jsonPath("$.workspaceId").exists())
+                .andReturn().getResponse().getContentAsString();
+                
+        String token = objectMapper.readTree(loginResponse).get("token").asText();
+
+        // 3. Logout
+        org.redisson.api.RBucket<Object> bucket = org.mockito.Mockito.mock(org.redisson.api.RBucket.class);
+        org.mockito.Mockito.when(redissonClient.getBucket("blacklist:" + token)).thenReturn(bucket);
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logged out successfully"));
     }
 }

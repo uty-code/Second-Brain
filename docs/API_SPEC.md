@@ -1,11 +1,78 @@
-# API 및 MCP 인터페이스 명세 (API_SPEC.md)
+# API Specification: AIMS-Graph
 
-## 1. Ingestion Webhook (REST API)
-외부 시스템에서 새로운 문서를 백엔드로 밀어 넣을 때 사용하는 엔드포인트입니다.
+## 1. Authentication & Account API (B2B 인증 및 계정 관리)
+Spring Security 및 JWT 기반의 멀티유저 인증 API입니다.
 
-**`POST /api/v1/ingest`**
-- **Headers**: `Authorization: Bearer {JWT_TOKEN}` (토큰에 매핑된 접근 허용 workspace_id 목록 추출)
-- **Content-Type**: `application/json`
+### 1.1 사용자 등록 (Register)
+- **`POST /api/v1/auth/register`**
+- **Request Body**:
+  ```json
+  {
+    "username": "user123",
+    "password": "securepassword"
+  }
+  ```
+- **Response `200 OK`**:
+  ```json
+  {
+    "message": "User registered successfully",
+    "username": "user123"
+  }
+  ```
+
+### 1.2 사용자 로그인 (Login)
+- **`POST /api/v1/auth/login`**
+- **Request Body**:
+  ```json
+  {
+    "username": "user123",
+    "password": "securepassword"
+  }
+  ```
+- **Response `200 OK`**:
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIiwi...",
+    "username": "user123",
+    "workspaceId": "ws-user123"
+  }
+  ```
+  *(참고: 로그인 성공 시 해당 사용자에게 기본 할당되는 워크스페이스 ID `ws-[username]`도 함께 반환됩니다.)*
+
+### 1.3 사용자 로그아웃 (Logout)
+- **`POST /api/v1/auth/logout`**
+- **Headers**: `Authorization: Bearer {JWT_TOKEN}`
+- **동작**: 백엔드에서 전달된 JWT 토큰을 추출하고 유효성을 검증한 뒤, 남은 만료 시간(TTL) 동안 Redis 블랙리스트(`blacklist:{token}`)에 추가하여 즉각 토큰을 무효화합니다.
+- **Response `200 OK`**:
+  ```json
+  {
+    "message": "Logged out successfully"
+  }
+  ```
+
+### 1.4 계정 영구 탈퇴 (Delete Account)
+- **`DELETE /api/v1/auth/account`**
+- **Headers**: `Authorization: Bearer {JWT_TOKEN}`
+- **동작**: 사용자가 소유한 모든 데이터를 파괴적으로 삭제합니다.
+  1. Neo4j에서 사용자의 워크스페이스 관련 노드 및 관계 전체 삭제 (`MATCH (n) WHERE n.workspaceId = 'ws-[username]' OR n.workspaceId STARTS WITH '[username]_' DETACH DELETE n`).
+  2. 로컬 디렉토리에서 사용자 소유의 워크스페이스 폴더 전체 물리적 삭제.
+  3. RDBMS `Users` 테이블에서 해당 유저 레코드 영구 삭제.
+- **Response `200 OK`**:
+  ```json
+  {
+    "message": "Account deleted successfully"
+  }
+  ```
+- **Response `401 Unauthorized`**: 로그인 인증 실패 시 반환.
+
+---
+
+## 2. Ingest API (지식 수집 및 적재)
+원본 데이터를 백엔드로 전달하여 분석 및 지식 컴파일 파이프라인을 구동시킵니다.
+
+### 2.1 문서 수집 요청 (Ingest Source)
+- **`POST /api/v1/ingest/source`**
+- **Headers**: `Authorization: Bearer {JWT_TOKEN}`
 - **Request Body**:
   ```json
   {
@@ -25,46 +92,55 @@
   }
   ```
 
-**`GET /api/v1/ingest/{event_id}/status`**
-- 아웃박스 이벤트의 현재 처리 상태를 조회합니다.
+### 2.2 수집 이벤트 상태 조회 (Get Ingest Status)
+- **`GET /api/v1/ingest/{event_id}/status`**
 - **Response `200 OK`**:
   ```json
   {
-    "event_id": "550e8400-...",
+    "event_id": "550e8400-e29b-41d4-a716-446655440000",
     "status": "PROCESSED",
     "processed_at": "2026-06-02T06:00:00Z"
   }
   ```
 
-### 1.2 에러 응답 규약
-모든 API 에러는 다음 통일된 JSON 포맷을 따릅니다.
-```json
-{
-  "error": "DUPLICATE_SOURCE",
-  "message": "Source with the same content_hash already exists.",
-  "timestamp": "2026-06-02T06:00:00Z"
-}
-```
-| HTTP Status | error code | 설명 |
-|---|---|---|
-| `400` | `INVALID_PAYLOAD` | 필수 필드 누락 또는 잘못된 형식 |
-| `409` | `DUPLICATE_SOURCE` | 동일한 `content_hash`의 소스가 이미 존재 |
-| `500` | `INTERNAL_ERROR` | 서버 내부 오류 |
+---
 
-## 2. Workspace (Tenant) Management API
-사용자의 세컨드 브레인(금고) 설정을 조회하고 관리하기 위한 엔드포인트입니다. (BYOK 기능 및 데이터베이스 개별 API 키 등록 엔드포인트는 폐기되었습니다.)
+## 3. Workspace API (워크스페이스 격리 및 자격증명 관리)
+사용자의 격리된 지식창고(Vault) 목록 조회 및 생성을 처리합니다.
 
-**`GET /api/v1/workspaces/list`**
+### 3.1 워크스페이스 목록 조회 (List Workspaces)
+- **`GET /api/v1/workspaces/list`**
 - **Headers**: `Authorization: Bearer {JWT_TOKEN}`
+- **동작**: 현재 로그인된 사용자의 소유 영역에 해당하는 워크스페이스 폴더(`ws-[username]` 또는 `[username]_`로 시작)만 스캔하여 리스트로 반환합니다. 로그인되지 않은 사용자(또는 익명/더미 유저)는 빈 리스트를 반환받습니다.
 - **Response `200 OK`**:
   ```json
   [
-    "default-workspace",
-    "my-second-brain"
+    "ws-user123",
+    "user123_my-development-notes"
   ]
   ```
 
-**`GET /api/v1/workspaces/{workspace_id}/graph`**
+### 3.2 워크스페이스 생성 (Create Workspace)
+- **`POST /api/v1/workspaces`**
+- **Headers**: `Authorization: Bearer {JWT_TOKEN}`
+- **Request Body**:
+  ```json
+  {
+    "name": "my-development-notes"
+  }
+  ```
+- **동작**: 비로그인 사용자는 차단(401)되며, 입력받은 이름의 공백 및 영문 이외 문자를 하이픈(-)으로 정제한 뒤, 사용자의 `[username]_`를 접두사로 붙여 격리된 물리적 폴더를 생성합니다.
+- **Response `200 OK`**:
+  ```json
+  {
+    "workspace_id": "user123_my-development-notes",
+    "message": "Workspace created successfully."
+  }
+  ```
+- **Response `409 Conflict`**: 이미 동일한 명칭의 워크스페이스가 존재할 때 발생.
+
+### 3.3 워크스페이스 지식 그래프 조회 (Get Workspace Graph)
+- **`GET /api/v1/workspaces/{workspace_id}/graph`**
 - **Headers**: `Authorization: Bearer {JWT_TOKEN}`
 - **Response `200 OK`**:
   ```json
@@ -74,7 +150,7 @@
         "id": "harness-framework",
         "name": "하네스 프레임워크",
         "type": "concept",
-        "val": 1
+        "val": 5
       }
     ],
     "links": [
@@ -87,39 +163,26 @@
   }
   ```
 
-**`GET /api/v1/workspaces/{workspace_id}/export`**
+### 3.4 워크스페이스 데이터 백업 내보내기 (Export Workspace)
+- **`GET /api/v1/workspaces/{workspace_id}/export`**
 - **Headers**: `Authorization: Bearer {JWT_TOKEN}`
-- **Response `200 OK`**: `application/zip` 파일 스트림 (Neo4j 데이터 및 마크다운 위키 파일들을 포함하는 압축파일)
-
-**`DELETE /api/v1/workspaces/{workspace_id}/data`**
-- **Headers**: `Authorization: Bearer {JWT_TOKEN}`
-- **Response `200 OK`**:
-  ```json
-  {
-    "status": "OK",
-    "deletedNodes": 15,
-    "deletedFiles": 24
-  }
-  ```
-- **동작**:
-  - Neo4j에서 해당 `workspaceId`를 갖는 모든 노드와 관계를 분리 및 삭제(`DETACH DELETE`)합니다.
-  - 해당 워크스페이스의 물리적 루트 디렉토리(및 하위 파일/폴더 전체)를 재귀적으로 완전 삭제하여 데이터를 영구적으로 비웁니다.
+- **Response `200 OK`**: `application/zip` 파일 스트림 (해당 워크스페이스의 Neo4j 노드 데이터 백업 json과 물리 마크다운 위키 파일들을 포함하는 압축 파일).
 
 ---
 
-## 3. Wiki Page API
-위키 페이지의 마크다운 상세 본문 콘텐츠를 조회합니다.
+## 4. Wiki Page API (마크다운 페이지 조회)
+지식 위키 본문의 실제 마크다운 텍스트를 조회합니다.
 
-**`GET /api/v1/wiki/{conceptName}`**
-- **Headers**: `Authorization: Bearer {JWT_TOKEN}` (또는 `X-Workspace-ID`)
+### 4.1 위키 페이지 본문 조회 (Get Wiki Page)
+- **`GET /api/v1/wiki/{conceptName}`**
+- **Headers**: `Authorization: Bearer {JWT_TOKEN}` (또는 `X-Workspace-ID` / 쿼리 파라미터 `workspaceId`)
 - **Path Parameter**:
-  - `conceptName`: 영문 파일 슬러그(예: `harness-framework`) 또는 한글/공백이 포함된 명칭(예: `하네스 프레임워크`).
-  - **경로 검증**: 경로 조작 공격(Path Traversal) 방지를 위해 `..`, `/`, `\` 문자열만 엄격히 차단하고, 그 외 한글, 공백 등 파일명에 사용 가능한 광범위한 문자셋을 허용합니다.
-  - **동적 식별자 해소 레이어(Dynamic Slug Resolution)**: `conceptName`이 한글/공백 형식이면, 백엔드가 실시간으로 Neo4j 그래프 DB에서 해당 이름을 `title`로 갖는 개념 노드를 찾아 매핑된 영문 슬러그를 찾아내어 파일을 조회합니다.
+  - `conceptName`: 한글/영어/공백이 포함된 개념명(예: `하네스 프레임워크`) 또는 영문 slug(예: `harness-framework`).
+- **동작**: 경로 조작(Path Traversal) 방지 필터를 거친 뒤, 동적 슬러그 해석(Dynamic Slug Resolution)을 통해 Neo4j 지식 그래프를 조회하여 실제 마크다운 파일 경로를 유추하고 해당 파일 본문을 반환합니다.
 - **Response `200 OK`**:
   ```json
   {
-    "content": "---\ntitle: \"하네스 프레임워크\"\n...\n# 하네스 프레임워크\n..."
+    "content": "---\ntitle: \"하네스 프레임워크\"\ntype: concept\n---\n# 하네스 프레임워크\n\n하네스 프레임워크는..."
   }
   ```
 - **Response `404 Not Found`**:
@@ -132,77 +195,59 @@
 
 ---
 
-## 4. Query API (REST)
-사용자가 위키에 질문을 던지는 엔드포인트입니다.
+## 5. Query API (REST 기반 자연어 질의)
+지식 위키 및 그래프를 탐색하여 질문에 자율적으로 응답하는 엔드포인트입니다.
 
-**`POST /api/v1/query`**
+- **`POST /api/v1/query`**
 - **Headers**: `Authorization: Bearer {JWT_TOKEN}`
 - **Request Body**:
   ```json
   {
-    "question": "LLM Wiki와 RAG의 근본적인 차이점은?",
+    "question": "LLM 위키와 일반 RAG의 아키텍처적 차이는 무엇인가요?",
     "file_back": true,
     "useNotion": true
   }
   ```
-- `file_back`: `true`이면 응답 결과를 새로운 위키 페이지로 자동 저장(Filed back)합니다.
-- `useNotion`: `true`일 경우 선택한 Notion 문서를 실시간으로 검색해 컨텍스트에 추가합니다. (선택)
+- **동작**: `LangChain4j` 기반의 Agentic Graph Traversal을 수행하여 논리적 지식 지도를 구축 및 응답합니다. `file_back`이 true일 경우 응답 결과로 신규 위키 인사이트 페이지를 자동 생성합니다.
 - **Response `200 OK`**:
   ```json
   {
-    "answer": "...",
+    "answer": "LLM 위키는 사후 RAG와 달리...",
     "sources_cited": ["wiki/concepts/llm-wiki.md", "wiki/concepts/rag.md"],
     "filed_back_path": "wiki/insights/llm-wiki-vs-rag.md"
   }
   ```
 
-## 4. Lint API (내부 / Daemon 전용)
-자가 치유 데몬이 호출하는 내부 전용 API입니다.
+---
 
-**`POST /api/internal/lint`**
-- **Request Body**:
-  ```json
-  {
-    "scope": "CHANGED_SUBGRAPH",
-    "since": "2026-06-01T00:00:00Z"
-  }
-  ```
-- `scope`: `FULL` (전체 스캔) 또는 `CHANGED_SUBGRAPH` (변경된 노드의 의존성 트리만).
-- **Response `200 OK`**:
-  ```json
-  {
-    "issues_found": 3,
-    "auto_fixed": 2,
-    "requires_review": [{"page": "wiki/concepts/old-topic.md", "issue": "STALE_DATA"}]
-  }
-  ```
+## 6. Notification SSE API (실시간 알림 스트림)
+지식 탐색 중 실시간 이벤트를 전송받기 위한 Server-Sent Events 엔드포인트입니다.
 
-## 5. MCP (Model Context Protocol) 엔드포인트
+- **`GET /api/v1/notifications/sse`**
+- **Query Parameters**:
+  - `token`: JWT 토큰 (또는 WebSocket/SSE 연결 제약 상의 쿼리 주입 허용)
+  - `workspaceId`: 대상 워크스페이스 ID
+- **동작**: 클라이언트 브라우저와 비동기 커넥션을 수립하고, AI 에이전트 활동 이벤트를 스트리밍합니다.
+- **발행 이벤트 명세 (`ai_reading`):**
+  - AI 에이전트가 특정 개념 노드를 조회하거나 읽어 들일 때 발생합니다.
+  - **Payload**:
+    ```json
+    {
+      "nodeId": "harness-framework"
+    }
+    ```
 
-> **✅ [상태: 공식 Spring AI MCP 서버 연동 완료]**
-> Phase 6 및 6.5 마이그레이션을 통해 `org.springframework.ai:spring-ai-mcp-server-webmvc-spring-boot-starter`를 도입했습니다.
-> 클라이언트는 `/mcp/sse` 엔드포인트를 통해 JSON-RPC 2.0 프로토콜로 직접 SSE 연결을 맺으며 통신합니다. (인증은 기존과 동일하게 JWT 헤더를 사용하며 `JwtInterceptor`가 가로채 처리합니다.)
+---
 
-AI 에이전트(Claude Desktop, Cursor 등)가 AIMS-Graph 시스템과 다이렉트로 통신하기 위해 노출되는 도구들입니다. Spring AI의 `@Tool` 어노테이션으로 구현되어 있습니다.
+## 7. Model Context Protocol (MCP) API
+외부 AI 도구(Cursor, Claude Desktop 등)와 연동하기 위한 공식 Spring AI MCP (SSE 방식) 규약 엔드포인트입니다.
 
-### 5.1 Endpoints
-- **GET `/mcp/sse`**: 클라이언트가 SSE 스트림을 열기 위해 접속하는 진입점. Next.js 프론트엔드는 일반적인 REST 대신 `@modelcontextprotocol/sdk`를 사용하여 브라우저에서 직접 이 엔드포인트에 접속, 브라우저 기반 MCP 클라이언트로 동작하여 그래프 데이터를 가져옵니다.
-- **POST `/mcp/message`**: 클라이언트가 툴 실행 요청 등을 JSON-RPC 형식으로 보낼 때 사용하는 엔드포인트. (SSE 연결 시 받은 sessionId 사용)
+- **GET `/mcp/sse`**: JSON-RPC 2.0 프로토콜을 수행하기 위한 최초 SSE 연결 엔드포인트.
+- **POST `/mcp/message`**: 클라이언트가 툴 실행 및 리소스 조회 메시지를 전송하는 엔드포인트.
 
-### 5.1 Tools
-| Tool 이름 | 파라미터 | 반환 타입 | 설명 |
-|---|---|---|---|
-| `searchGraph` | `concept_name` (String) | JSON (노드 배열 + 관계) | Neo4j에서 개념과 인접 노드를 탐색 |
-| `getNodeContext` | `concept_name` (String) | String (마크다운+엣지) | 그래프 순회를 위한 인접 컨텍스트 조회 |
-| `readWikiPage` | `page_path` (String) | String (마크다운 원문) | 특정 위키 페이지 전체 텍스트 반환 |
-| `fileBackInsight` | `title` (String), `content` (String) | JSON | 새로운 통찰을 위키 페이지로 기록 |
-| `listRecentChanges` | 없음 | JSON (변경 로그 배열) | 최근 위키 변경 이력 조회 |
-
-*(참고: `workspaceId` 파라미터는 더 이상 명시적으로 넘길 필요가 없습니다. HTTP Session의 JWT 토큰에서 자동 추출되어 주입됩니다.)*
-
-### 5.2 Resources
-| URI | 반환 타입 | 설명 |
-|---|---|---|
-| `wiki://index` | String (마크다운) | 전체 위키 목차 (`index.md`) |
-| `wiki://log` | String (마크다운) | 연대기적 변경 기록 (`log.md`) |
-| `wiki://stats` | JSON | 노드/엣지 수, 최근 Lint 결과 등 시스템 통계 |
+### 7.1 제공 Tools 리스트
+- `searchGraph(concept_name: String)`: Neo4j 그래프에서 인접 노드 및 관계 정보 검색.
+- `getNodeContext(concept_name: String)`: 특정 노드의 관계망 요약을 텍스트 형식으로 조회 (호출 시 `ai_reading` 이벤트 발행).
+- `readWikiPage(page_path: String)`: 지정한 마크다운 위키 페이지 본문 내용을 조회 (호출 시 `ai_reading` 이벤트 발행).
+- `fileBackInsight(title: String, content: String)`: 에이전트가 도출한 통찰을 새로운 마크다운 파일로 영구 적재.
+- `listRecentChanges()`: 최근 위키 변동 기록 목록 조회.

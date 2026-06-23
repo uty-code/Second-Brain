@@ -8,14 +8,17 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
 public class NotificationController {
 
-    private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private static final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     @GetMapping("/sse")
     public SseEmitter subscribe() {
@@ -27,28 +30,29 @@ public class NotificationController {
         }
 
         SseEmitter emitter = new SseEmitter(60 * 60 * 1000L); // 1 hour timeout
-        emitters.put(workspaceId, emitter);
+        List<SseEmitter> workspaceEmitters = emitters.computeIfAbsent(workspaceId, k -> new CopyOnWriteArrayList<>());
+        workspaceEmitters.add(emitter);
 
-        emitter.onCompletion(() -> emitters.remove(workspaceId));
-        emitter.onTimeout(() -> emitters.remove(workspaceId));
-        emitter.onError((e) -> emitters.remove(workspaceId));
+        emitter.onCompletion(() -> workspaceEmitters.remove(emitter));
+        emitter.onTimeout(() -> workspaceEmitters.remove(emitter));
+        emitter.onError((e) -> workspaceEmitters.remove(emitter));
 
         try {
             emitter.send(SseEmitter.event().name("connected").data("Successfully subscribed to notifications."));
         } catch (Exception e) {
-            emitters.remove(workspaceId);
+            workspaceEmitters.remove(emitter);
         }
 
         return emitter;
     }
 
     public static void broadcastNotification(String workspaceId, String eventName, Object data) {
-        SseEmitter emitter = emitters.get(workspaceId);
-        if (emitter != null) {
+        List<SseEmitter> workspaceEmitters = emitters.getOrDefault(workspaceId, Collections.emptyList());
+        for (SseEmitter emitter : workspaceEmitters) {
             try {
                 emitter.send(SseEmitter.event().name(eventName).data(data));
             } catch (Exception e) {
-                emitters.remove(workspaceId);
+                workspaceEmitters.remove(emitter);
             }
         }
     }

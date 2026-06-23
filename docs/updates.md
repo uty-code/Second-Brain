@@ -61,6 +61,28 @@ otionPageId 추가.
 - Goal: Migrate API tokens from frontend localStorage to backend AES-encrypted DB storage.
 - Status: Done
 
-## 2026-06-10: B2B Login Page & JWT Auth [완료됨]
+## 2026-06-10: B2B Login 초 & JWT Auth [완료됨]
 - Goal: Implement JWT-based login page and Spring Security on backend for multi-user support.
 - Status: Done
+
+## 2026-06-11: 프론트엔드/백엔드 완전 로그아웃 (Redis Blacklisting) 구현 [완료됨]
+- Goal: 프론트엔드 글로벌 로그아웃 버튼(Zustand 상태 초기화, /login 리다이렉트) 구현 및 백엔드 POST /v1/auth/logout API를 통한 Redis JWT Blacklisting 연동 (안 2 채택).
+
+## 2026-06-11: 로그아웃 버튼 위치 변경 (UI)
+- Goal: 사용성 개선을 위해 Sidebar.tsx 우측 상단의 로그아웃 버튼을 좌측 사이드바 하단(Footer) 영역으로 크게 이동.
+
+## 2026-06-11: 사이드바 하단 사용자 계정 표시 (UI)
+- Goal: 좌측 사이드바 하단의 로그아웃 버튼 옆에 현재 로그인한 사용자 아이디(`currentUser`)가 표시되도록 UI 레이아웃 개선.
+
+## 2026-06-11: 로그인 직후 빈 화면(Empty State) 버그 수정
+- Goal: 로그인 완료 직후 페이지 진입 시 새로고침 전까지 그래프가 보이지 않던 문제를 해결하기 위해, `page.tsx`의 렌더링 의존성(dependency array)에 `isLoggedIn` 상태를 추가하여 즉시 백엔드에서 데이터를 불러오도록 수정.
+
+## 2026-06-11: B2B 계정 영구 탈퇴 기능 구현 [완료됨]
+- Goal: B2B 보안 정책 및 데이터 격리 파기 요구사항에 맞추어, 프론트엔드 탈퇴 확인 경고 모달 UI 및 백엔드 DELETE /api/v1/auth/account API(Neo4j 노드 영구 삭제, 물리 마크다운 디렉토리 재귀 완전 삭제, RDBMS User 정보 삭제 일괄 트랜잭션 처리) 구현.
+
+## 2026-06-23: AI 모델 선택 개선 및 가상 스레드 위키 쓰기 동시성 제어 [진행중]
+- **Goal:** 위키 페이지 생성 시 사용자가 선택한 AI 모델(DeepSeek v4 등)이 반영되지 않던 버그를 수정하고, 가상 스레드 환경에서 동일 위키 파일 동시 쓰기로 인한 Race Condition을 방지하도록 ReentrantLock 기반의 파일 락 장치 도입.
+- **Affected Files:**
+  - c:\second brain\aims-backend\src\main\java\com\aimsgraph\ingest\LlmService.java
+  - c:\second brain\aims-backend\src\test\java\com\aimsgraph\ingest\LlmServiceTest.java
+

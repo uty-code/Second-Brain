@@ -8,19 +8,31 @@ import { useAppStore } from "@/store/useAppStore";
 import { analyzeFiles, fetchWorkspaceGraph } from "@/services/api";
 
 export default function Home() {
-  const { setSelectedNodeId, graphData, setGraphData, currentWorkspaceId, selectedModel } = useAppStore();
+  const { setSelectedNodeId, graphData, setGraphData, currentWorkspaceId, selectedModel, isLoggedIn, setIsGraphLoading } = useAppStore();
   const [isUploading, setIsUploading] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    if (currentWorkspaceId) {
+    useAppStore.persist.onFinishHydration(() => setHasHydrated(true));
+    setHasHydrated(useAppStore.persist.hasHydrated());
+  }, []);
+
+  useEffect(() => {
+    if (hasHydrated && currentWorkspaceId && isLoggedIn) {
+      setIsGraphLoading(true);
       fetchWorkspaceGraph(currentWorkspaceId).then((result) => {
         setGraphData(result);
+      }).catch(err => {
+        console.error("Failed to fetch graph data after login:", err);
+      }).finally(() => {
+        setIsGraphLoading(false);
       });
     }
-  }, [currentWorkspaceId, setGraphData]);
+  }, [hasHydrated, currentWorkspaceId, setGraphData, isLoggedIn, setIsGraphLoading]);
 
   const handleFileDrop = async (files: File[]) => {
     if (files.length === 0) return;
+    if (!currentWorkspaceId) return;
     setIsUploading(true);
     try {
       const result = await analyzeFiles(files, currentWorkspaceId, selectedModel);

@@ -12,14 +12,17 @@ interface EmptyStateProps {
 
 export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
-  const { selectedModel, setSelectedModel } = useAppStore();
+  const { selectedModel, setSelectedModel, currentWorkspaceId } = useAppStore();
+
+  const hasWorkspace = !!currentWorkspaceId;
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (accepted) => {
       setStagedFiles((prev) => [...prev, ...accepted]);
     },
-    noClick: isUploading,
-    noKeyboard: isUploading,
+    noClick: isUploading || !hasWorkspace,
+    noKeyboard: isUploading || !hasWorkspace,
+    disabled: !hasWorkspace,
   });
 
   const removeFile = (index: number) => {
@@ -37,22 +40,34 @@ export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
       <div className="flex flex-col items-center w-full max-w-lg gap-4">
         {/* Drop zone */}
         <div
-          {...getRootProps()}
+          {...(hasWorkspace ? getRootProps() : {})}
           className={`flex flex-col items-center justify-center p-10 w-full border border-dashed rounded-md transition-colors ${
-            isUploading
-              ? "cursor-default border-zinc-700 bg-zinc-800/20"
-              : "cursor-pointer"
+            !hasWorkspace
+              ? "cursor-default border-zinc-800 bg-zinc-900"
+              : isUploading
+                ? "cursor-default border-zinc-700 bg-zinc-800/20"
+                : ""
           } ${
-            isDragActive && !isUploading
+            hasWorkspace && isDragActive && !isUploading
               ? "border-zinc-400 bg-zinc-800/50"
-              : !isUploading
-                ? "border-zinc-700 bg-zinc-900 hover:border-zinc-500 hover:bg-zinc-800/30"
+              : hasWorkspace && !isUploading
+                ? "cursor-pointer border-zinc-700 bg-zinc-900 hover:border-zinc-500 hover:bg-zinc-800/30"
                 : ""
           }`}
         >
-          <input {...getInputProps()} disabled={isUploading} />
+          {hasWorkspace && <input {...getInputProps()} disabled={isUploading} />}
 
-          {isUploading ? (
+          {!hasWorkspace ? (
+            <>
+              <UploadCloud className="w-10 h-10 text-zinc-600 mb-3" />
+              <p className="text-zinc-300 text-center text-sm font-medium mb-1">
+                창고를 먼저 생성해 주세요
+              </p>
+              <p className="text-zinc-500 text-center text-xs">
+                좌측 사이드바의 + 버튼으로 새 창고를 만든 뒤 파일을 업로드할 수 있습니다.
+              </p>
+            </>
+          ) : isUploading ? (
             <>
               <Loader2 className="w-10 h-10 text-zinc-400 mb-3 animate-spin" />
               <p className="text-zinc-200 text-center text-sm font-medium mb-1">
@@ -78,7 +93,7 @@ export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
         </div>
 
         {/* Staged files list */}
-        {stagedFiles.length > 0 && !isUploading && (
+        {hasWorkspace && stagedFiles.length > 0 && !isUploading && (
           <div className="w-full flex flex-col gap-1.5">
             {stagedFiles.map((file, i) => (
               <div
@@ -103,7 +118,7 @@ export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
         )}
 
         {/* AI Model Selection */}
-        {!isUploading && (
+        {hasWorkspace && !isUploading && (
           <div className="w-full flex gap-3 mt-2">
             <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-all ${selectedModel === 'gpt-4o-mini' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
               <input type="radio" name="empty_model" checked={selectedModel === 'gpt-4o-mini'} onChange={() => setSelectedModel('gpt-4o-mini')} className="hidden" />
@@ -119,7 +134,7 @@ export function EmptyState({ onSubmit, isUploading }: EmptyStateProps) {
         )}
 
         {/* Submit button */}
-        {stagedFiles.length > 0 && !isUploading && (
+        {hasWorkspace && stagedFiles.length > 0 && !isUploading && (
           <button
             onClick={() => onSubmit(stagedFiles)}
             className="w-full py-2.5 bg-zinc-100 text-zinc-900 text-sm font-medium rounded hover:bg-white transition-colors mt-2"

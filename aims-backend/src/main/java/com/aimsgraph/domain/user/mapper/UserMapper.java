@@ -9,4 +9,6 @@ public interface UserMapper {
     void insertUser(Users user);
 
     Users findByUsername(@Param("username") String username);
+
+    void deleteByUsername(@Param("username") String username);
 }

@@ -15,7 +15,7 @@ spring:
   data:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
-      port: ${SPRING_REDIS_PORT:6379}
+      port: ${SPRING_REDIS_PORT:6300}
 
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml

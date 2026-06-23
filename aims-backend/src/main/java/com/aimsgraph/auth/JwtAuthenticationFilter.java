@@ -28,12 +28,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
+        String token = null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+            token = authHeader.substring(7);
+        } else if (request.getParameter("token") != null) {
+            token = request.getParameter("token");
+        }
 
-            // Handle legacy MVP Dummy token
+        if (token != null) {
             if ("MVP_DUMMY_TOKEN".equals(token)) {
                 String headerWorkspaceId = request.getHeader("X-Workspace-ID");
+                if (headerWorkspaceId == null || headerWorkspaceId.isEmpty()) {
+                    headerWorkspaceId = request.getParameter("workspaceId");
+                }
                 String workspaceId = (headerWorkspaceId != null && !headerWorkspaceId.isEmpty()) ? headerWorkspaceId : "default-workspace";
                 
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
@@ -48,6 +55,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtUtil.getUsernameFromToken(token);
                 String tokenWorkspaceId = jwtUtil.getWorkspaceIdFromToken(token);
                 String headerWorkspaceId = request.getHeader("X-Workspace-ID");
+                if (headerWorkspaceId == null || headerWorkspaceId.isEmpty()) {
+                    headerWorkspaceId = request.getParameter("workspaceId");
+                }
                 
                 String workspaceId = (headerWorkspaceId != null && !headerWorkspaceId.isEmpty()) ? headerWorkspaceId : tokenWorkspaceId;
 

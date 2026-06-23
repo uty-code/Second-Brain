@@ -16,7 +16,7 @@
 | `neo4j` | `neo4j:5-community` | `7474:7474`, `7687:7687` | `neo4j-data:/data` |
 | `zookeeper` | `confluentinc/cp-zookeeper:7.6.0` | `2181:2181` | - |
 | `kafka` | `confluentinc/cp-kafka:7.6.0` | `9092:9092` | - |
-| `redis` | `redis:7-alpine` | `6379:6379` | - |
+| `redis` | `redis:7-alpine` | `6300:6379` | - |
 
 ## 3. 필수 환경 변수 (`.env`)
 개발 환경에서 애플리케이션을 구동하기 위한 필수 환경 변수 목록입니다.
@@ -36,7 +36,7 @@ SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
 # Redis
 SPRING_REDIS_HOST=localhost
-SPRING_REDIS_PORT=6379
+SPRING_REDIS_PORT=6300
 ```
 
 ### 3.2 LLM API 키

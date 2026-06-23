@@ -335,3 +335,29 @@ export async function registerUser(username: string, password: string) {
   }
   return response.json();
 }
+
+export async function logoutUser() {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Authorization": getAuthHeader()
+    }
+  });
+  if (!response.ok) {
+    console.warn("Backend logout failed or token already invalid");
+  }
+}
+
+export async function deleteAccount() {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/account`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": getAuthHeader()
+    }
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: "Delete account failed" }));
+    throw new Error(err.message || "Failed to delete account");
+  }
+  return response.json();
+}

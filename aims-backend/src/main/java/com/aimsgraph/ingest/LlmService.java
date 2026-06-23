@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import com.aimsgraph.api.NotificationController;
 
 @Slf4j
 @Service
@@ -32,6 +33,11 @@ public class LlmService {
     private final Neo4jClient neo4jClient;
     private final NotionIngestService notionIngestService;
     private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
+    private final Map<String, java.util.concurrent.locks.ReentrantLock> fileLocks = new ConcurrentHashMap<>();
+
+    private java.util.concurrent.locks.ReentrantLock getFileLock(String filePath) {
+        return fileLocks.computeIfAbsent(filePath, k -> new java.util.concurrent.locks.ReentrantLock());
+    }
 
     private String getApiKey(String workspaceId) {
         String key = System.getenv("OPENAI_API_KEY");
@@ -55,7 +61,7 @@ public class LlmService {
                 return OpenAiChatModel.builder()
                         .apiKey(finalKey)
                         .baseUrl("https://openrouter.ai/api/v1")
-                        .modelName("deepseek/deepseek-v4-flash")
+                        .modelName("deepseek/deepseek-v4-pro")
                         .temperature(0.2)
                         .build();
             } else {
@@ -121,43 +127,23 @@ public class LlmService {
             throw new RuntimeException("OpenAI API Key is not configured.");
         }
 
-        // === 1단계: 파일 업로드 ===
-        java.util.List<String> fileIds = new java.util.ArrayList<>();
         StringBuilder rawSourceBuilder = new StringBuilder();
         for (org.springframework.web.multipart.MultipartFile file : files) {
             if (!file.isEmpty()) {
-                String fileId = uploadFileToOpenAI(file, workspaceId);
-                fileIds.add(fileId);
-                log.info("File uploaded: {} → fileId={}", file.getOriginalFilename(), fileId);
-                
                 rawSourceBuilder.append("--- File: ").append(file.getOriginalFilename()).append(" ---\n");
                 rawSourceBuilder.append(new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8)).append("\n\n");
             }
         }
 
-        if (fileIds.isEmpty()) {
+        if (rawSourceBuilder.length() == 0) {
             throw new RuntimeException("업로드된 파일이 모두 비어있습니다.");
         }
         
         String rawSourceText = rawSourceBuilder.toString();
+        log.info("Files parsed into text ({} bytes). Routing to analyzeTextWithOpenAI...", rawSourceText.length());
 
-        // === 2단계: 파일 분석하여 그래프(Nodes, Links) 추출 ===
-        String analysisResult = callResponsesAPI(fileIds, null, workspaceId);
-        log.info("Analysis complete for {} file(s). Parsing graph data...", fileIds.size());
-
-        String cleaned = analysisResult.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> graphData = mapper.readValue(cleaned, new TypeReference<Map<String, Object>>() {});
-        
-        // === 3단계: 동기식 & 병렬 위키 생성 ===
-        // 여기서 블로킹되어 위키 파일이 100% 생성될 때까지 대기합니다.
-        generateWikiPages(graphData, rawSourceText, workspaceId);
-        
-        // Neo4j에 그래프(노드와 링크) 저장
-        saveGraphToNeo4j(graphData, workspaceId);
-        
-        // 4단계: 클라이언트로 그래프 리턴 (이 시점에는 .md 파일이 모두 디스크에 존재함)
-        return graphData;
+        // Delegate to analyzeTextWithOpenAI using the extracted text
+        return analyzeTextWithOpenAI(rawSourceText, workspaceId, modelName);
     }
 
     public Map<String, Object> analyzeTextWithOpenAI(String rawSourceText, String workspaceId, String modelName) throws Exception {
@@ -166,7 +152,7 @@ public class LlmService {
         }
 
         // === 1단계: 파일 대신 텍스트로 분석하여 그래프(Nodes, Links) 추출 ===
-        String analysisResult = callResponsesAPI(null, rawSourceText, workspaceId);
+        String analysisResult = callResponsesAPI(null, rawSourceText, workspaceId, modelName);
         log.info("Analysis complete for raw text. Parsing graph data...");
 
         String cleaned = analysisResult.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
@@ -174,7 +160,7 @@ public class LlmService {
         Map<String, Object> graphData = mapper.readValue(cleaned, new TypeReference<Map<String, Object>>() {});
         
         // === 2단계: 동기식 & 병렬 위키 생성 ===
-        generateWikiPages(graphData, rawSourceText, workspaceId);
+        generateWikiPages(graphData, rawSourceText, workspaceId, modelName);
         
         // Neo4j에 그래프(노드와 링크) 저장
         saveGraphToNeo4j(graphData, workspaceId);
@@ -216,7 +202,7 @@ public class LlmService {
         return (String) respMap.get("id");
     }
 
-    private String callResponsesAPI(java.util.List<String> fileIds, String rawSourceText, String workspaceId) throws Exception {
+    private String callResponsesAPI(java.util.List<String> fileIds, String rawSourceText, String workspaceId, String modelName) throws Exception {
         java.util.Collection<Map<String, Object>> existingNodes = neo4jClient.query("MATCH (n:Concept {workspaceId: $workspaceId}) RETURN n.name as name LIMIT 200")
                 .bind(workspaceId).to("workspaceId").fetch().all();
         List<String> existingNames = new java.util.ArrayList<>();
@@ -228,7 +214,7 @@ public class LlmService {
         String systemPrompt = "You are a structured data architect specializing in Zettelkasten-style Second Brain systems. "
                 + "Your sole job is to read the given document(s), identify their core knowledge structure, "
                 + "and output a single strictly validated JSON knowledge graph that UNIFIES all documents. "
-                + "You never hallucinate IDs. You never output anything other than valid JSON.";
+                + "You never hallucinate IDs. You never output anything other than valid JSON. Do NOT use markdown code blocks like ```json.";
 
         String userPrompt = "Here are the existing concepts already in the knowledge graph: [" + existingConceptsStr + "]\n"
                 + "CRITICAL RULE: If a concept in the document strongly matches or relates to an existing concept, you MUST reuse the exact same ID. Only generate new IDs for entirely new concepts.\n\n"
@@ -236,65 +222,24 @@ public class LlmService {
                 + "Return ONLY a single valid JSON object.\n"
                 + "Example structure:\n"
                 + "{\"nodes\":[{\"id\":\"english-slug\",\"name\":\"Korean Name\",\"type\":\"concept\",\"summary\":\"One sentence summary in Korean\",\"val\":5,\"snippet\":\"1~2 sentences exact quote from the document explaining this concept\"}],"
-                + "\"links\":[{\"source\":\"node-id-a\",\"target\":\"node-id-b\",\"label\":\"RELATED_TO\"}]}\n";
+                + "\"links\":[{\"source\":\"node-id-a\",\"target\":\"node-id-b\",\"label\":\"RELATED_TO\"}]}\n\n"
+                + "Raw Document Content:\n" + rawSourceText;
 
-        ObjectMapper mapper = new ObjectMapper();
-        List<Map<String, Object>> contentArray = new java.util.ArrayList<>();
-        if (fileIds != null && !fileIds.isEmpty()) {
-            for (String fid : fileIds) {
-                contentArray.add(Map.of("type", "input_file", "file_id", fid));
-            }
-            contentArray.add(Map.of("type", "input_text", "text", userPrompt));
-        } else if (rawSourceText != null && !rawSourceText.isEmpty()) {
-            contentArray.add(Map.of("type", "input_text", "text", "Raw Document Content:\n" + rawSourceText + "\n\n" + userPrompt));
-        } else {
-            throw new RuntimeException("Both fileIds and rawSourceText are empty");
-        }
-
-        Map<String, Object> requestBody = Map.of(
-                "model", "gpt-4o-mini",
-                "instructions", systemPrompt,
-                "input", java.util.List.of(Map.of("role", "user", "content", contentArray))
-        );
-
-        String jsonBody = mapper.writeValueAsString(requestBody);
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                .uri(java.net.URI.create("https://api.openai.com/v1/responses"))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + getApiKey(workspaceId))
-                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
-
-        java.net.http.HttpResponse<String> resp = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-        Map<String, Object> respMap = mapper.readValue(resp.body(), new TypeReference<Map<String, Object>>() {});
-
-        if (respMap.get("error") != null) {
-            throw new RuntimeException("OpenAI Responses API error: " + respMap.get("error"));
-        }
-
-        List<Map<String, Object>> output = (List<Map<String, Object>>) respMap.get("output");
-        if (output != null) {
-            for (Map<String, Object> item : output) {
-                if ("message".equals(item.get("type"))) {
-                    List<Map<String, Object>> content = (List<Map<String, Object>>) item.get("content");
-                    if (content != null) {
-                        for (Map<String, Object> block : content) {
-                            if ("output_text".equals(block.get("type"))) {
-                                return (String) block.get("text");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        throw new RuntimeException("No text output found in Responses API response");
+        ChatLanguageModel model = getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
+        
+        log.info("Calling Language Model for unified knowledge graph extraction...");
+        String response = model.generate(
+                dev.langchain4j.data.message.SystemMessage.from(systemPrompt), 
+                dev.langchain4j.data.message.UserMessage.from(userPrompt)
+        ).content().text();
+        
+        return response;
     }
 
     // ---------------------------------------------------------
     // PARALLEL WIKI GENERATION
     // ---------------------------------------------------------
-    public void generateWikiPages(Map<String, Object> graphData, String rawSourceText, String workspaceId) {
+    public void generateWikiPages(Map<String, Object> graphData, String rawSourceText, String workspaceId, String modelName) {
         java.util.List<Map<String, Object>> nodes = (java.util.List<Map<String, Object>>) graphData.get("nodes");
         if (nodes == null || nodes.isEmpty()) return;
 
@@ -351,8 +296,8 @@ public class LlmService {
                             "aliases", Map.of("type", "array", "items", Map.of("type", "string")),
                             "content", Map.of("type", "string"),
                             "relatedConcepts", Map.of(
-                                "type", "array",
-                                "items", Map.of("type", "string")
+                                  "type", "array",
+                                  "items", Map.of("type", "string")
                             )
                         ),
                         "required", List.of("id", "title", "type", "summary", "tags", "aliases", "content", "relatedConcepts"),
@@ -389,17 +334,34 @@ public class LlmService {
                                 messages.add(Map.of("role", "system", "content", systemPrompt));
                                 messages.add(Map.of("role", "user", "content", userPrompt));
 
+                                String requestModelName = "gpt-4o-mini";
+                                String apiUrl = "https://api.openai.com/v1/chat/completions";
+                                String apiKey = getApiKey(workspaceId);
+
+                                if ("deepseek-v4".equalsIgnoreCase(modelName)) {
+                                    requestModelName = "deepseek/deepseek-v4-pro";
+                                    apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+                                    
+                                    String envDeepSeekKey = System.getenv("DEEPSEEK_API_KEY");
+                                    com.aimsgraph.domain.workspace.WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+                                    String deepseekKey = creds != null ? creds.getDeepseekApiKey() : null;
+                                    String finalKey = (deepseekKey != null && !deepseekKey.isBlank()) ? deepseekKey : envDeepSeekKey;
+                                    if (finalKey != null && !finalKey.isBlank()) {
+                                        apiKey = finalKey;
+                                    }
+                                }
+
                                 Map<String, Object> requestBody = Map.of(
-                                        "model", "gpt-4o-mini",
+                                        "model", requestModelName,
                                         "messages", messages,
                                         "response_format", responseFormat
-                                );
+                                  );
 
                                 String jsonBody = mapper.writeValueAsString(requestBody);
                                 java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                                        .uri(java.net.URI.create("https://api.openai.com/v1/chat/completions"))
+                                        .uri(java.net.URI.create(apiUrl))
                                         .header("Content-Type", "application/json")
-                                        .header("Authorization", "Bearer " + getApiKey(workspaceId))
+                                        .header("Authorization", "Bearer " + apiKey)
                                         .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
                                         .build();
 
@@ -465,14 +427,20 @@ public class LlmService {
                                     String filename = page.id().trim() + ".md";
                                     java.nio.file.Path filePath = wikiDir.resolve(filename);
                                     
-                                    if (java.nio.file.Files.exists(filePath)) {
-                                        String existingContent = java.nio.file.Files.readString(filePath, java.nio.charset.StandardCharsets.UTF_8);
-                                        String appendedContent = existingContent + "\n## 추가 정보 (업데이트 됨)\n\n" + sb.toString();
-                                        java.nio.file.Files.writeString(filePath, appendedContent, java.nio.charset.StandardCharsets.UTF_8);
-                                        log.info("Appended to existing wiki page: {}", filename);
-                                    } else {
-                                        java.nio.file.Files.writeString(filePath, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
-                                        log.info("Saved wiki page: {}", filename);
+                                    java.util.concurrent.locks.ReentrantLock lock = getFileLock(filePath.toAbsolutePath().toString());
+                                    lock.lock();
+                                    try {
+                                        if (java.nio.file.Files.exists(filePath)) {
+                                            String existingContent = java.nio.file.Files.readString(filePath, java.nio.charset.StandardCharsets.UTF_8);
+                                            String appendedContent = existingContent + "\n## 추가 정보 (업데이트 됨)\n\n" + sb.toString();
+                                            java.nio.file.Files.writeString(filePath, appendedContent, java.nio.charset.StandardCharsets.UTF_8);
+                                            log.info("Appended to existing wiki page: {}", filename);
+                                        } else {
+                                            java.nio.file.Files.writeString(filePath, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
+                                            log.info("Saved wiki page: {}", filename);
+                                        }
+                                    } finally {
+                                        lock.unlock();
                                     }
                                 }
                             } finally {
@@ -597,6 +565,7 @@ public class LlmService {
         @dev.langchain4j.agent.tool.Tool("Get relationships and neighbor node IDs for a specific node ID")
         public String getNodeContext(String nodeId) {
             log.info("Tool [getNodeContext] nodeId: {}", nodeId);
+            NotificationController.broadcastNotification(workspaceId, "ai_reading", Map.of("nodeId", nodeId));
             String cypher = "MATCH (c:Concept {name: $nodeId, workspaceId: $workspaceId})-[r]-(neighbor:Concept) " +
                             "RETURN type(r) as relType, neighbor.name as neighborName, startNode(r) = c as isOut LIMIT 20";
             java.util.Collection<Map<String, Object>> results = neo4jClient.query(cypher)
@@ -623,6 +592,7 @@ public class LlmService {
         @dev.langchain4j.agent.tool.Tool("Read the content of a markdown wiki page by node ID")
         public String readWikiPage(String nodeId) {
             log.info("Tool [readWikiPage] nodeId: {}", nodeId);
+            NotificationController.broadcastNotification(workspaceId, "ai_reading", Map.of("nodeId", nodeId));
             String[] subDirs = {"concepts", "entities", "insights"};
             for (String subDir : subDirs) {
                 java.nio.file.Path path = java.nio.file.Paths.get(wikiBaseDir, workspaceId, "wiki", subDir, nodeId + ".md");
