@@ -2,7 +2,7 @@ package com.aimsgraph.ingest;
 
 import com.aimsgraph.domain.workspace.WorkspaceService;
 import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class LlmService {
     private final WorkspaceCredentialsService credentialsService;
     private final Neo4jClient neo4jClient;
     private final NotionIngestService notionIngestService;
-    private final Map<String, ChatLanguageModel> modelCache = new ConcurrentHashMap<>();
+    private final Map<String, ChatModel> modelCache = new ConcurrentHashMap<>();
     private final Map<String, java.util.concurrent.locks.ReentrantLock> fileLocks = new ConcurrentHashMap<>();
 
     private java.util.concurrent.locks.ReentrantLock getFileLock(String filePath) {
@@ -45,7 +45,7 @@ public class LlmService {
         return defaultApiKey;
     }
 
-    private ChatLanguageModel getOrCreateModel(String workspaceId, String modelName) {
+    private ChatModel getOrCreateModel(String workspaceId, String modelName) {
         String cacheKey = workspaceId + ":" + (modelName != null ? modelName : "gpt-4o-mini");
         return modelCache.computeIfAbsent(cacheKey, k -> {
             if ("deepseek-v4".equalsIgnoreCase(modelName)) {
@@ -79,8 +79,8 @@ public class LlmService {
 
     public String queryDirect(String workspaceId, String userQuery, String modelName) {
         try {
-            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName);
-            return model.generate(userQuery);
+            ChatModel model = getOrCreateModel(workspaceId, modelName);
+            return model.chat(userQuery);
         } catch (Exception e) {
             log.error("Direct query failed", e);
             return "Error: " + e.getMessage();
@@ -93,7 +93,7 @@ public class LlmService {
     public List<ExtractedConcept> extractKnowledge(String eventId, String content, String workspaceId) {
         log.info("Extracting knowledge graph for text in workspace: {}", workspaceId);
         
-        ChatLanguageModel model = getOrCreateModel(workspaceId, "gpt-4o-mini");
+        ChatModel model = getOrCreateModel(workspaceId, "gpt-4o-mini");
 
         String prompt = "You are a Second Brain Zettelkasten assistant.\n" +
                 "Analyze the following text and extract multiple atomic concepts or entities.\n" +
@@ -108,7 +108,7 @@ public class LlmService {
                 "  \"linkedConcepts\": array of objects, where each object MUST have 'name' (string) and 'type' (string, MUST BE ONE OF: EXTENDS, CONTRADICTS, DEPENDS_ON, EXPLAINS, RELATED_TO)\n\n" +
                 "Text to analyze:\n" + content;
 
-        String response = model.generate(prompt);
+        String response = model.chat(prompt);
         response = response.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
         
         try {
@@ -226,13 +226,13 @@ public class LlmService {
                 + "\"links\":[{\"source\":\"node-id-a\",\"target\":\"node-id-b\",\"label\":\"RELATED_TO\"}]}\n\n"
                 + "Raw Document Content:\n" + rawSourceText;
 
-        ChatLanguageModel model = getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
+        ChatModel model = getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
         
         log.info("Calling Language Model for unified knowledge graph extraction...");
-        String response = model.generate(
+        String response = model.chat(
                 dev.langchain4j.data.message.SystemMessage.from(systemPrompt), 
                 dev.langchain4j.data.message.UserMessage.from(userPrompt)
-        ).content().text();
+        ).aiMessage().text();
         
         return response;
     }
@@ -610,6 +610,22 @@ public class LlmService {
             return "Wiki page not found for ID: " + nodeId;
         }
 
+        @dev.langchain4j.agent.tool.Tool("Read the contents of multiple markdown wiki pages by comma-separated node IDs (e.g. 'node-a,node-b')")
+        public String readWikiPages(String nodeIds) {
+            log.info("Tool [readWikiPages] nodeIds: {}", nodeIds);
+            if (nodeIds == null || nodeIds.isBlank()) return "No nodeIds provided.";
+            String[] ids = nodeIds.split(",");
+            StringBuilder sb = new StringBuilder();
+            for (String rawId : ids) {
+                String nodeId = rawId.trim();
+                if (nodeId.isEmpty()) continue;
+                sb.append("=== Wiki Page: ").append(nodeId).append(" ===\n");
+                String pageContent = readWikiPage(nodeId);
+                sb.append(pageContent).append("\n\n");
+            }
+            return sb.toString();
+        }
+
         @dev.langchain4j.agent.tool.Tool("Search and read relevant Notion context by query or read specific page if available")
         public String readNotionPage(String query) {
             log.info("Tool [readNotionPage] query: {}", query);
@@ -663,14 +679,15 @@ public class LlmService {
             "1. Extract key concepts from the user's query.\n" +
             "2. Use `searchGraph` to find relevant starting node IDs.\n" +
             "3. Use `getNodeContext` to see relationships of important nodes.\n" +
-            "4. Use `readWikiPage` to read the actual content of the nodes to gather facts.\n" +
+            "4. Use `readWikiPages` (comma-separated node IDs) instead of calling `readWikiPage` multiple times if you need to read multiple wiki pages. This prevents hitting the execution limit.\n" +
             "5. If Notion access is enabled and relevant, use `readNotionPage` to get additional context.\n" +
             "6. Synthesize all gathered information into a comprehensive answer.\n" +
             "7. IF the user requests to save, build, or record new knowledge/concepts into the Second Brain:\n" +
             "   - You MUST use the `saveToSecondBrain` tool.\n" +
             "   - The `rawContent` parameter MUST be the full, detailed, original source text. DO NOT summarize it.\n" +
             "   - After a successful save, inform the user that the graph has been updated automatically.\n" +
-            "8. ALWAYS reply in Korean."
+            "8. ALWAYS reply in Korean.\n" +
+            "9. You MUST prioritize utilizing the `readWikiPages` tool to bulk-read pages rather than calling single-page read multiple times. NEVER call `readWikiPage` more than 3 times sequentially."
         )
         String chat(@dev.langchain4j.service.UserMessage String userMessage);
     }
@@ -686,14 +703,14 @@ public class LlmService {
         }
 
         try {
-            ChatLanguageModel model = getOrCreateModel(workspaceId, modelName);
+            ChatModel model = getOrCreateModel(workspaceId, modelName);
             GraphTools tools = new GraphTools(workspaceId, useNotion, modelName);
 
             GraphAgent agent = dev.langchain4j.service.AiServices.builder(GraphAgent.class)
-                .chatLanguageModel(model)
+                .chatModel(model)
                 .chatMemory(dev.langchain4j.memory.chat.MessageWindowChatMemory.withMaxMessages(10))
                 .tools(tools)
-                .maxSequentialToolExecutions(50)
+                .maxToolCallingRoundTrips(50)
                 .build();
 
             String awarenessPrompt;

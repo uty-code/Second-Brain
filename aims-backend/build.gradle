@@ -43,8 +43,9 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     
     // LangChain4j
-    implementation 'dev.langchain4j:langchain4j:0.30.0'
-    implementation 'dev.langchain4j:langchain4j-open-ai:0.30.0'
+    implementation 'dev.langchain4j:langchain4j:1.15.1'
+    implementation 'dev.langchain4j:langchain4j-core:1.15.1'
+    implementation 'dev.langchain4j:langchain4j-open-ai:1.15.1'
     
     // Spring AI MCP Server
     implementation 'org.springframework.ai:spring-ai-mcp-server-webmvc-spring-boot-starter:1.0.0-M6'

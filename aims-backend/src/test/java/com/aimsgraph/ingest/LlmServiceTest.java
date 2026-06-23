@@ -1,7 +1,8 @@
 package com.aimsgraph.ingest;
 
 import com.aimsgraph.domain.workspace.WorkspaceService;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +31,7 @@ public class LlmServiceTest {
     private com.aimsgraph.domain.workspace.WorkspaceCredentialsService credentialsService;
 
     @Mock
-    private ChatLanguageModel chatLanguageModel;
+    private ChatModel chatModel;
 
     @Mock
     private Neo4jClient neo4jClient;
@@ -40,8 +41,8 @@ public class LlmServiceTest {
 
     @BeforeEach
     void setUp() {
-        Map<String, ChatLanguageModel> mockCache = new ConcurrentHashMap<>();
-        mockCache.put("tenant-1:gpt-4o-mini", chatLanguageModel);
+        Map<String, ChatModel> mockCache = new ConcurrentHashMap<>();
+        mockCache.put("tenant-1:gpt-4o-mini", chatModel);
         ReflectionTestUtils.setField(llmService, "modelCache", mockCache);
     }
 
@@ -60,7 +61,7 @@ public class LlmServiceTest {
                 "  }\n" +
                 "]";
 
-        when(chatLanguageModel.generate(anyString())).thenReturn(mockJsonResponse);
+        when(chatModel.chat(anyString())).thenReturn(mockJsonResponse);
 
         List<ExtractedConcept> results = llmService.extractKnowledge("event-1", "This is test content", "tenant-1");
 
@@ -91,14 +92,12 @@ public class LlmServiceTest {
         ReflectionTestUtils.setField(llmService, "defaultApiKey", "test-api-key");
 
         dev.langchain4j.data.message.AiMessage aiMessage = dev.langchain4j.data.message.AiMessage.from("Agent Answer");
-        dev.langchain4j.model.output.Response<dev.langchain4j.data.message.AiMessage> aiResponse = dev.langchain4j.model.output.Response.from(aiMessage);
+        ChatResponse chatResponse = ChatResponse.builder().aiMessage(aiMessage).build();
         
-        org.mockito.Mockito.lenient().when(chatLanguageModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any())).thenReturn(aiResponse);
-        org.mockito.Mockito.lenient().when(chatLanguageModel.generate(
-                org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any(),
-                org.mockito.ArgumentMatchers.<List<dev.langchain4j.agent.tool.ToolSpecification>>any()
-        )).thenReturn(aiResponse);
-        org.mockito.Mockito.lenient().when(chatLanguageModel.generate(
+        org.mockito.Mockito.lenient().when(chatModel.chat(
+                org.mockito.ArgumentMatchers.any(dev.langchain4j.model.chat.request.ChatRequest.class)
+        )).thenReturn(chatResponse);
+        org.mockito.Mockito.lenient().when(chatModel.chat(
                 org.mockito.ArgumentMatchers.anyString()
         )).thenReturn("Agent Answer");
 

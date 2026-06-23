@@ -86,3 +86,13 @@ otionPageId 추가.
   - c:\second brain\aims-backend\src\main\java\com\aimsgraph\ingest\LlmService.java
   - c:\second brain\aims-backend\src\test\java\com\aimsgraph\ingest\LlmServiceTest.java
 
+## 2026-06-23: LangChain4j 1.15.1 업그레이드 및 ChatModel 마이그레이션 [완료됨]
+- **Goal:** 에이전트의 10회 도구 호출 제한 예외(Fallback 버그)를 근본적으로 차단하기 위해 LangChain4j 1.x 대 메이저 업그레이드를 수행하고, 이에 따른 ChatLanguageModel -> ChatModel API 마이그레이션을 적용합니다.
+- **Affected Files:**
+  - [build.gradle](file:///c:/second%20brain/aims-backend/build.gradle): langchain4j, langchain4j-open-ai 버전을 1.15.1로 상향 조정하고 langchain4j-core 의존성 추가
+  - [LlmService.java](file:///c:/second%20brain/aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java): ChatLanguageModel을 ChatModel로 변경, generate()를 chat()으로 교체, AiServices 빌더에 maxToolCallingRoundTrips(50) 적용
+  - [LlmServiceTest.java](file:///c:/second%20brain/aims-backend/src/test/java/com/aimsgraph/ingest/LlmServiceTest.java): ChatModel Mocking 및 ChatResponse 빌더 구조 테스트 적응
+- **Details:**
+  - 마이그레이션 완료 후 `./gradlew test` 검증 수행 완료.
+  - 로컬 환경 로그인 토큰을 사용하여 `/api/v1/query` API를 연동 테스트하여 `searchGraph` -> `getNodeContext` -> `readWikiPage` 에 이르는 에이전트 sequential 툴 트래버설 흐름이 예외 없이 완벽하게 정상 동작함을 최종 검증 완료.
+
