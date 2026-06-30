@@ -95,29 +95,12 @@ public class LlmService {
         
         ChatModel model = getOrCreateModel(workspaceId, "gpt-4o-mini");
 
-        String prompt = "You are a Second Brain Zettelkasten assistant.\n" +
-                "Analyze the following text and extract multiple atomic concepts or entities.\n" +
-                "You MUST output ONLY a valid JSON Array. Do not use Markdown fences like ```json.\n" +
-                "Each object in the array MUST have the following keys:\n" +
-                "  \"name\": string (english slug with hyphens, e.g. 'llm-wiki')\n" +
-                "  \"title\": string (korean title)\n" +
-                "  \"type\": string ('concept' or 'entity')\n" +
-                "  \"tags\": array of strings\n" +
-                "  \"aliases\": array of strings\n" +
-                "  \"summary\": string (one line summary in korean)\n" +
-                "  \"linkedConcepts\": array of objects, where each object MUST have 'name' (string) and 'type' (string, MUST BE ONE OF: EXTENDS, CONTRADICTS, DEPENDS_ON, EXPLAINS, RELATED_TO)\n\n" +
-                "Text to analyze:\n" + content;
+        ConceptExtractor extractor = dev.langchain4j.service.AiServices.builder(ConceptExtractor.class)
+                .chatModel(model)
+                .build();
 
-        String response = model.chat(prompt);
-        response = response.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "");
-        
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(response, new TypeReference<List<ExtractedConcept>>() {});
-        } catch (Exception e) {
-            log.error("Failed to parse LLM response into concepts", e);
-            throw new RuntimeException("Failed to parse concepts from LLM", e);
-        }
+        ExtractedConceptsResponse response = extractor.extract(content);
+        return response != null && response.concepts() != null ? response.concepts() : java.util.Collections.emptyList();
     }
 
     // ---------------------------------------------------------
@@ -212,29 +195,22 @@ public class LlmService {
         }
         String existingConceptsStr = existingNames.isEmpty() ? "None" : String.join(", ", existingNames);
 
-        String systemPrompt = "You are a structured data architect specializing in Zettelkasten-style Second Brain systems. "
-                + "Your sole job is to read the given document(s), identify their core knowledge structure, "
-                + "and output a single strictly validated JSON knowledge graph that UNIFIES all documents. "
-                + "You never hallucinate IDs. You never output anything other than valid JSON. Do NOT use markdown code blocks like ```json.";
-
         String userPrompt = "Here are the existing concepts already in the knowledge graph: [" + existingConceptsStr + "]\n"
                 + "CRITICAL RULE: If a concept in the document strongly matches or relates to an existing concept, you MUST reuse the exact same ID. Only generate new IDs for entirely new concepts.\n\n"
                 + "Analyze the attached document(s) and build a single UNIFIED knowledge graph.\n\n"
-                + "Return ONLY a single valid JSON object.\n"
-                + "Example structure:\n"
-                + "{\"nodes\":[{\"id\":\"english-slug\",\"name\":\"Korean Name\",\"type\":\"concept\",\"summary\":\"One sentence summary in Korean\",\"val\":5,\"snippet\":\"1~2 sentences exact quote from the document explaining this concept\"}],"
-                + "\"links\":[{\"source\":\"node-id-a\",\"target\":\"node-id-b\",\"label\":\"RELATED_TO\"}]}\n\n"
                 + "Raw Document Content:\n" + rawSourceText;
 
         ChatModel model = getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
         
-        log.info("Calling Language Model for unified knowledge graph extraction...");
-        String response = model.chat(
-                dev.langchain4j.data.message.SystemMessage.from(systemPrompt), 
-                dev.langchain4j.data.message.UserMessage.from(userPrompt)
-        ).aiMessage().text();
+        log.info("Calling Language Model for unified knowledge graph extraction using Structured Outputs...");
+        UnifiedGraphExtractor extractor = dev.langchain4j.service.AiServices.builder(UnifiedGraphExtractor.class)
+                .chatModel(model)
+                .build();
         
-        return response;
+        KnowledgeGraphResponse graphResponse = extractor.extract(userPrompt);
+        
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.writeValueAsString(graphResponse);
     }
 
     // ---------------------------------------------------------
@@ -267,19 +243,33 @@ public class LlmService {
             String systemPrompt = "You are a specialized agent for writing structured Markdown Wiki pages for a Zettelkasten-style Second Brain system.\n\n"
                     + "## Output Rules\n"
                     + "- ALL content (title, summary, body) MUST be written in Korean.\n"
-                    + "- Cross-references to other concepts MUST use `[[Concept Name]]` syntax.\n"
+                    + "- Cross-references to other concepts MUST use `[[english-slug-id]]` syntax (e.g. `[[event-driven-architecture]]`). NEVER use Korean text inside `[[...]]`.\n"
                     + "- The `id` field MUST be an english slug with hyphens (e.g. `event-driven-architecture`).\n\n"
-                    + "## Quality Standards\n"
-                    + "The wiki page `content` field MUST include:\n"
-                    + "1. **정의**: 개념 명확 서술\n"
-                    + "2. **핵심 구성 요소**: 구조화된 설명\n"
-                    + "3. **동작 원리**: 단계별 프로세스\n"
-                    + "4. **장점과 트레이드오프**: 한계 포함 균형 서술\n"
-                    + "5. **실전 적용 사례**: 코드나 시나리오\n\n"
+                    + "## Quality Standards — The wiki page `content` field MUST include ALL 5 sections:\n"
+                    + "1. **## 정의** — 개념이 무엇인지 명확하고 풍부하게 서술 (최소 3문장)\n"
+                    + "2. **## 핵심 구성 요소** — 마크다운 표(Table) 또는 구조화된 목록으로 설명\n"
+                    + "3. **## 동작 원리** — 단계별 프로세스를 번호 목록으로 상세 서술\n"
+                    + "4. **## 장점과 트레이드오프** — 장점과 한계를 균형 있게 대조 (표 사용 권장)\n"
+                    + "5. **## 실전 적용 사례** — 코드 스니펫, 설정 예시, 또는 구체적 시나리오\n\n"
+                    + "## CRITICAL: Knowledge Sourcing Rules\n"
+                    + "- You MUST write rich, detailed content for every section. NEVER output placeholder text like `...` or `(내용 없음)`.\n"
+                    + "- If the source text provides limited information about a concept, you MAY and SHOULD supplement with widely-known general software engineering knowledge (e.g. how TDD works, what a circuit breaker pattern is).\n"
+                    + "- However, you MUST NEVER fabricate project-specific scenarios, fake code examples, or imaginary case studies that are not in the source text. Clearly distinguish between 'information from the source' and 'general knowledge'.\n\n"
                     + "## Format & Quality\n"
-                    + "- Use markdown elements such as tables and bullet points to structure the document precisely and beautifully.\n"
-                    + "## Summary 작성 규칙\n"
-                    + "- summary 필드는 30~80자 사이의 한 문장으로 압축.\n";
+                    + "- Use markdown elements such as tables, bullet points, code blocks, and blockquotes to structure the document precisely and beautifully.\n"
+                    + "- summary 필드는 30~80자 사이의 한 문장으로 압축.\n\n"
+                    + "## Few-shot Example (Follow this structure exactly):\n"
+                    + "```json\n"
+                    + "{\"id\":\"event-driven-architecture\",\"title\":\"이벤트 드리븐 아키텍처\",\"type\":\"concept\","
+                    + "\"summary\":\"시스템 컴포넌트 간 비동기 이벤트를 통해 느슨한 결합을 달성하는 소프트웨어 아키텍처 패턴\","
+                    + "\"tags\":[\"아키텍처\",\"비동기\",\"이벤트\"],\"aliases\":[\"EDA\",\"이벤트 기반 설계\"],"
+                    + "\"content\":\"## 정의\\n\\n**이벤트 드리븐 아키텍처(Event-Driven Architecture, EDA)**는 ...\\n\\n"
+                    + "## 핵심 구성 요소\\n\\n| 구성 요소 | 역할 | 예시 |\\n|---|---|---|\\n| Event Producer | ... |\\n\\n"
+                    + "## 동작 원리\\n\\n1. Producer가 이벤트를 발행한다.\\n2. ...\\n\\n"
+                    + "## 장점과 트레이드오프\\n\\n### 장점\\n- ...\\n\\n### 트레이드오프\\n- ...\\n\\n"
+                    + "## 실전 적용 사례\\n\\n```yaml\\n# Kafka 토픽 설정 예시\\n...\\n```\\n\","
+                    + "\"relatedConcepts\":[\"message-broker\",\"cqrs\"]}\n"
+                    + "```\n";
 
             Map<String, Object> responseFormat = Map.of(
                 "type", "json_schema",
@@ -363,6 +353,7 @@ public class LlmService {
                                 String jsonBody = mapper.writeValueAsString(requestBody);
                                 java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                                         .uri(java.net.URI.create(apiUrl))
+                                        .timeout(java.time.Duration.ofSeconds(45))
                                         .header("Content-Type", "application/json")
                                         .header("Authorization", "Bearer " + apiKey)
                                         .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
@@ -435,9 +426,9 @@ public class LlmService {
                                     try {
                                         if (java.nio.file.Files.exists(filePath)) {
                                             String existingContent = java.nio.file.Files.readString(filePath, java.nio.charset.StandardCharsets.UTF_8);
-                                            String appendedContent = existingContent + "\n## 추가 정보 (업데이트 됨)\n\n" + sb.toString();
-                                            java.nio.file.Files.writeString(filePath, appendedContent, java.nio.charset.StandardCharsets.UTF_8);
-                                            log.info("Appended to existing wiki page: {}", filename);
+                                            String mergedContent = mergeWikiContent(existingContent, sb.toString(), page.title(), workspaceId, modelName);
+                                            java.nio.file.Files.writeString(filePath, mergedContent, java.nio.charset.StandardCharsets.UTF_8);
+                                            log.info("Merged and refined existing wiki page: {}", filename);
                                         } else {
                                             java.nio.file.Files.writeString(filePath, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
                                             log.info("Saved wiki page: {}", filename);
@@ -467,8 +458,113 @@ public class LlmService {
 
             log.info("Wiki generation completed successfully! Files saved to {}", wikiDir.toAbsolutePath());
 
+            // === LLM Wiki Pattern: index.md & log.md 자동 갱신 ===
+            updateIndexAndLog(wikiDir, workspaceId, rawSourceText);
+
         } catch (Exception e) {
             log.error("Error in generateWikiPages", e);
+        }
+    }
+
+    // ---------------------------------------------------------
+    // LLM WIKI PATTERN: Intelligent Merge & Refine Engine
+    // ---------------------------------------------------------
+    private String mergeWikiContent(String existingContent, String newContent, String title, String workspaceId, String modelName) {
+        try {
+            String mergePrompt = "You are a wiki editor for a Zettelkasten Second Brain system.\n\n"
+                    + "Below are TWO versions of a wiki page about \"" + title + "\".\n"
+                    + "Your task is to MERGE them into a single, cohesive, well-structured markdown document.\n\n"
+                    + "RULES:\n"
+                    + "1. Combine all unique information from both versions. Remove duplicates.\n"
+                    + "2. If there are contradictions, keep the NEWER information and note the change.\n"
+                    + "3. Maintain the standard wiki structure: YAML frontmatter, ## 정의, ## 핵심 구성 요소, ## 동작 원리, ## 장점과 트레이드오프, ## 실전 적용 사례, ## 관련 개념들.\n"
+                    + "4. Output ONLY the final merged markdown. No explanations or commentary.\n"
+                    + "5. ALL text must be in Korean. Cross-references use [[english-slug]] format.\n\n"
+                    + "=== EXISTING VERSION ===\n" + existingContent + "\n\n"
+                    + "=== NEW VERSION ===\n" + newContent;
+
+            ChatModel model = getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
+            String merged = model.chat(mergePrompt);
+            if (merged != null && !merged.isBlank()) {
+                return merged.trim();
+            }
+        } catch (Exception e) {
+            log.warn("Merge failed, falling back to new content. Error: {}", e.getMessage());
+        }
+        return newContent;
+    }
+
+    // ---------------------------------------------------------
+    // LLM WIKI PATTERN: index.md & log.md Auto-Update
+    // ---------------------------------------------------------
+    private void updateIndexAndLog(java.nio.file.Path wikiDir, String workspaceId, String rawSourceText) {
+        try {
+            java.nio.file.Path wikiRoot = wikiDir.getParent(); // wiki/ folder
+            if (wikiRoot == null) wikiRoot = wikiDir;
+
+            // === index.md: 전체 위키 카탈로그 재빌드 ===
+            java.nio.file.Path indexPath = wikiRoot.resolve("index.md");
+            StringBuilder indexBuilder = new StringBuilder();
+            indexBuilder.append("# Wiki Index\n\n");
+            indexBuilder.append("> 이 파일은 위키의 전체 개념 카탈로그입니다. 자동으로 갱신됩니다.\n\n");
+            indexBuilder.append("| 개념 | 타입 | 요약 |\n");
+            indexBuilder.append("|------|------|------|\n");
+
+            if (java.nio.file.Files.exists(wikiDir)) {
+                java.util.List<java.nio.file.Path> sortedFiles = java.nio.file.Files.list(wikiDir)
+                        .filter(p -> p.toString().endsWith(".md"))
+                        .sorted()
+                        .toList();
+
+                for (java.nio.file.Path file : sortedFiles) {
+                    String content = java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8);
+                    String fileName = file.getFileName().toString();
+                    String slug = fileName.replace(".md", "");
+
+                    // Parse frontmatter
+                    String pageTitle = slug;
+                    String pageType = "-";
+                    java.util.regex.Matcher titleMatcher = java.util.regex.Pattern.compile("title:\\s*(.*)").matcher(content);
+                    if (titleMatcher.find()) pageTitle = titleMatcher.group(1).trim();
+                    java.util.regex.Matcher typeMatcher = java.util.regex.Pattern.compile("type:\\s*(.*)").matcher(content);
+                    if (typeMatcher.find()) pageType = typeMatcher.group(1).trim();
+
+                    // Extract first meaningful sentence as summary
+                    String summary = "-";
+                    java.util.regex.Matcher defMatcher = java.util.regex.Pattern.compile("## 정의\\s*\\n+\\s*(.+)").matcher(content);
+                    if (defMatcher.find()) {
+                        summary = defMatcher.group(1).trim();
+                        if (summary.length() > 80) summary = summary.substring(0, 77) + "...";
+                    }
+
+                    indexBuilder.append("| [[").append(slug).append("\\|").append(pageTitle).append("]] | ")
+                            .append(pageType).append(" | ").append(summary).append(" |\n");
+                }
+            }
+
+            java.nio.file.Files.writeString(indexPath, indexBuilder.toString(), java.nio.charset.StandardCharsets.UTF_8);
+            log.info("Updated wiki index.md with {} entries", java.nio.file.Files.list(wikiDir).count());
+
+            // === log.md: Chronological ingest log ===
+            java.nio.file.Path logPath = wikiRoot.resolve("log.md");
+            StringBuilder logEntry = new StringBuilder();
+            if (!java.nio.file.Files.exists(logPath)) {
+                logEntry.append("# Wiki Log\n\n> 자동 생성된 수집 히스토리 타임라인입니다.\n\n");
+            }
+
+            String sourcePreview = rawSourceText.length() > 100 ? rawSourceText.substring(0, 100).replace("\n", " ") + "..." : rawSourceText.replace("\n", " ");
+            logEntry.append("## [").append(java.time.LocalDate.now()).append("] ingest | ").append(workspaceId).append("\n");
+            logEntry.append("- **시각**: ").append(java.time.LocalDateTime.now().toString()).append("\n");
+            logEntry.append("- **소스 미리보기**: ").append(sourcePreview).append("\n\n");
+
+            java.nio.file.Files.writeString(logPath, logEntry.toString(),
+                    java.nio.charset.StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
+            log.info("Appended ingest entry to wiki log.md");
+
+        } catch (Exception e) {
+            log.warn("Failed to update index/log (non-critical): {}", e.getMessage());
         }
     }
 
@@ -756,6 +852,55 @@ public class LlmService {
             log.error("Failed to query OpenAI directly", e);
             return "Error calling AI API: " + e.getMessage();
         }
+    }
+
+    public record GraphNode(
+        String id,
+        String name,
+        String type,
+        String summary,
+        int val,
+        String snippet
+    ) {}
+
+    public record GraphLink(
+        String source,
+        String target,
+        String label
+    ) {}
+
+    public record KnowledgeGraphResponse(
+        List<GraphNode> nodes,
+        List<GraphLink> links
+    ) {}
+
+    public record ExtractedConceptsResponse(
+        List<ExtractedConcept> concepts
+    ) {}
+
+    interface ConceptExtractor {
+        @dev.langchain4j.service.SystemMessage("You are a Second Brain Zettelkasten assistant. "
+                + "Analyze the following text and extract ONLY core concepts that deserve their own dedicated wiki page. "
+                + "FILTERING RULES: "
+                + "1) EXCLUDE proper nouns that are merely mentioned once (e.g. a person's name, a product name used as an example). "
+                + "2) EXCLUDE trivial keywords or jargon that cannot sustain a standalone explanation page. "
+                + "3) INCLUDE only concepts where you can write at least a full paragraph defining what it is, how it works, and why it matters. "
+                + "4) Aim for 5-15 high-quality concepts rather than 20+ shallow ones.")
+        ExtractedConceptsResponse extract(@dev.langchain4j.service.UserMessage String content);
+    }
+
+    interface UnifiedGraphExtractor {
+        @dev.langchain4j.service.SystemMessage("You are a structured data architect specializing in Zettelkasten-style Second Brain systems. "
+                + "Your sole job is to read the given document(s), identify their core knowledge structure, "
+                + "and output a single strictly validated JSON knowledge graph that UNIFIES all documents. "
+                + "CRITICAL EXTRACTION RULES: "
+                + "1) Only extract concepts that are SUBSTANTIVELY discussed in the source — not merely mentioned in passing. "
+                + "2) A concept must have enough context in the source to write a meaningful wiki page (definition + explanation). "
+                + "3) Do NOT create nodes for: example project names (e.g. 'FeedbackPulse'), one-off tool mentions, file names, or UI element names unless they are the MAIN TOPIC. "
+                + "4) Use english-slug-format for all node IDs (e.g. 'event-driven-architecture', not '1' or 'EDA'). "
+                + "5) Aim for 5-15 high-quality nodes rather than 20+ shallow ones. "
+                + "6) You never hallucinate IDs.")
+        KnowledgeGraphResponse extract(@dev.langchain4j.service.UserMessage String userPrompt);
     }
 }
 

@@ -2,6 +2,7 @@ version: '3.8'
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
@@ -13,6 +14,7 @@ services:
 
   neo4j:
     image: neo4j:5
+    restart: unless-stopped
     environment:
       NEO4J_AUTH: neo4j/password
     ports:
@@ -23,6 +25,7 @@ services:
 
   redis:
     image: redis:7
+    restart: unless-stopped
     ports:
       - "6300:6379"
 
@@ -30,6 +33,7 @@ services:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
     hostname: zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -41,6 +45,7 @@ services:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
     hostname: kafka
+    restart: unless-stopped
     depends_on:
       - zookeeper
     ports:

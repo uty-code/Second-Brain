@@ -96,3 +96,12 @@ otionPageId 추가.
   - 마이그레이션 완료 후 `./gradlew test` 검증 수행 완료.
   - 로컬 환경 로그인 토큰을 사용하여 `/api/v1/query` API를 연동 테스트하여 `searchGraph` -> `getNodeContext` -> `readWikiPage` 에 이르는 에이전트 sequential 툴 트래버설 흐름이 예외 없이 완벽하게 정상 동작함을 최종 검증 완료.
 
+## 2026-06-30: AI Wiki Ingestion Robustness (Structured Outputs Integration) [완료됨]
+- **Goal:** 프롬프트 기반 지식 추출에서 발생할 수 있는 JSON 파싱 에러를 근본 차단하기 위해 `extractKnowledge` 및 `callResponsesAPI` 메서드를 API 레벨의 Structured Outputs 규격 강제 방식으로 전환합니다.
+- **Affected Files:**
+  - [LlmService.java](file:///c:/second%20brain/aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java)
+  - [LlmServiceTest.java](file:///c:/second%20brain/aims-backend/src/test/java/com/aimsgraph/ingest/LlmServiceTest.java)
+  - [LlmExtractionQualityTest.java](file:///c:/second%20brain/aims-backend/src/test/java/com/aimsgraph/ingest/LlmExtractionQualityTest.java)
+- **Plan:**
+  - `extractKnowledge`와 `callResponsesAPI` 호출 시 `gpt-4o-mini` 모델 호출부에 `json_schema` 스펙을 주입하거나 LangChain4j `AiServices` 인터페이스를 통해 Structured Output을 보장합니다.
+  - 기존의 수동 문자열 정규식 가공 구문(`replaceAll`)을 제거하고 JSON 파이프라인의 구조적 안전성을 검증합니다.

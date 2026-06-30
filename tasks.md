@@ -17,3 +17,4 @@
 - [x] Phase 11: LLM 쿼리 컨텍스트 최적화 (RAG 지양, Local Wiki Markdown 기반 Context Retrieval 테스트 구축)
 - [x] Phase 12: B2B 멀티테넌시 및 접근 제어 (JWT, Spring Security, Next.js AuthGuard)
 - [x] Phase 13: B2B 로그아웃 및 탈퇴 (Redis Blacklisting, Frontend 초기화)
+- [x] Phase 14: 지식 추출 안정화 (API 레벨 Structured Outputs 통합)

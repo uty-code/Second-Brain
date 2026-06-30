@@ -48,20 +48,25 @@ public class LlmServiceTest {
 
     @Test
     void extractKnowledge_shouldParseJsonCorrectly() {
-        String mockJsonResponse = "[\n" +
-                "  {\n" +
-                "    \"name\": \"test-concept\",\n" +
-                "    \"title\": \"Test Concept\",\n" +
-                "    \"type\": \"concept\",\n" +
-                "    \"tags\": [\"test\"],\n" +
-                "    \"aliases\": [\"alias1\"],\n" +
-                "    \"summary\": \"Test summary\",\n" +
-                "    \"content\": \"Test content\",\n" +
-                "    \"linkedConcepts\": [{\"name\": \"test-concept-2\", \"type\": \"EXTENDS\"}]\n" +
-                "  }\n" +
-                "]";
+        String mockJsonResponse = "{\n" +
+                "  \"concepts\": [\n" +
+                "    {\n" +
+                "      \"name\": \"test-concept\",\n" +
+                "      \"title\": \"Test Concept\",\n" +
+                "      \"type\": \"concept\",\n" +
+                "      \"tags\": [\"test\"],\n" +
+                "      \"aliases\": [\"alias1\"],\n" +
+                "      \"summary\": \"Test summary\",\n" +
+                "      \"content\": \"Test content\",\n" +
+                "      \"linkedConcepts\": [{\"name\": \"test-concept-2\", \"type\": \"EXTENDS\"}]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
 
-        when(chatModel.chat(anyString())).thenReturn(mockJsonResponse);
+        dev.langchain4j.data.message.AiMessage aiMessage = dev.langchain4j.data.message.AiMessage.from(mockJsonResponse);
+        ChatResponse chatResponse = ChatResponse.builder().aiMessage(aiMessage).build();
+        when(chatModel.chat(org.mockito.ArgumentMatchers.any(dev.langchain4j.model.chat.request.ChatRequest.class)))
+                .thenReturn(chatResponse);
 
         List<ExtractedConcept> results = llmService.extractKnowledge("event-1", "This is test content", "tenant-1");
 
