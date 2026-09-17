@@ -1,26 +1,32 @@
-# Phase 6 지시서: 표준 MCP (SSE) 서버 마이그레이션
+﻿---
+title: "Phase 6: "
+phase_number: 6
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
 
-> **Status: [완료됨]**
-> - **히스토리 (Phase 6)**: 외부 `mcp-spring-boot-starter` 의존성을 가져올 수 없는 환경 제약으로 인해, 자체 경량화 프레임워크(`@McpTool`, `Registry`)를 직접 구현하여 우회 연동함.
-> - **히스토리 (Phase 6.5)**: 네트워크 제약 이슈가 해소됨을 확인하고, 자체 구현 코드를 폐기한 뒤 `org.springframework.ai:spring-ai-mcp-server-webmvc-spring-boot-starter` 기반의 공식 표준 아키텍처로 원상복구 및 마이그레이션 완료.
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━ (Phase 6)**: ?몃? `mcp-spring-boot-starter` ?섏〈?깆쓣 媛?몄삱 ???녿뒗 ?섍꼍 ?쒖빟?쇰줈 ?명빐, ?먯껜 寃쎈웾???꾨젅?꾩썙??`@McpTool`, `Registry`)瑜?吏곸젒 援ы쁽?섏뿬 ?고쉶 ?곕룞??
+> - **?덉뒪?좊━ (Phase 6.5)**: ?ㅽ듃?뚰겕 ?쒖빟 ?댁뒋媛 ?댁냼?⑥쓣 ?뺤씤?섍퀬, ?먯껜 援ы쁽 肄붾뱶瑜??먭린????`org.springframework.ai:spring-ai-mcp-server-webmvc-spring-boot-starter` 湲곕컲??怨듭떇 ?쒖? ?꾪궎?띿쿂濡??먯긽蹂듦뎄 諛?留덉씠洹몃젅?댁뀡 ?꾨즺.
 
-## 1. 개요 및 목표
-- 기존 REST API 방식으로 흉내 내던 Pseudo-MCP(`McpController`)를 폐기하고, AIMS-Graph 백엔드를 **표준 JSON-RPC 2.0 규격의 MCP 서버(SSE 기반)**로 승격시킵니다.
-- 이를 통해 Claude Desktop, Cursor, Antigravity 등의 외부 에이전트가 어떠한 미들웨어 브릿지 없이도 우리 백엔드에 다이렉트로 접속해 지식 그래프(Neo4j)와 통신할 수 있게 만듭니다.
+## 1. 媛쒖슂 諛?紐⑺몴
+- 湲곗〈 REST API 諛⑹떇?쇰줈 ?됰궡 ?대뜕 Pseudo-MCP(`McpController`)瑜??먭린?섍퀬, AIMS-Graph 諛깆뿏?쒕? **?쒖? JSON-RPC 2.0 洹쒓꺽??MCP ?쒕쾭(SSE 湲곕컲)**濡??밴꺽?쒗궢?덈떎.
+- ?대? ?듯빐 Claude Desktop, Cursor, Antigravity ?깆쓽 ?몃? ?먯씠?꾪듃媛 ?대뼚??誘몃뱾?⑥뼱 釉뚮┸吏 ?놁씠???곕━ 諛깆뿏?쒖뿉 ?ㅼ씠?됲듃濡??묒냽??吏??洹몃옒??Neo4j)? ?듭떊?????덇쾶 留뚮벊?덈떎.
 
-## 2. 참조 문서
-- `docs/API_SPEC.md` (REST 대신 공식 MCP 규격 참고)
-- Spring Boot MCP 공식 레퍼런스 가이드
+## 2. 李몄“ 臾몄꽌
+- `docs/API_SPEC.md` (REST ???怨듭떇 MCP 洹쒓꺽 李멸퀬)
+- Spring Boot MCP 怨듭떇 ?덊띁?곗뒪 媛?대뱶
 
-## 3. 구현 내용 목록
-1. **MCP Starter 라이브러리 추가**
-   - `build.gradle`에 `mcp-spring-boot-starter` (또는 해당하는 Java MCP SDK) 의존성 추가.
-2. **SSE 엔드포인트 활성화 (`com.aimsgraph.mcp` 패키지 개편)**
-   - 기존의 `POST /api/v1/mcp/tools/execute` 대신 SDK에서 제공하는 `/mcp/sse` 라우터를 설정합니다.
-   - MCP Tool 어노테이션(`@McpTool` 등 라이브러리에 맞게)을 사용하여 `search_graph`, `read_wiki_page` 등의 메서드를 등록합니다.
-3. **보안 및 인증 연동**
-   - 클라이언트(Claude Desktop)가 HTTP 헤더를 통해 SSE 연결 시도 시, 기존처럼 `JwtInterceptor`를 거쳐 `workspaceId`를 가져와 세션에 유지(Stateful)하거나, 요청마다 식별하도록 아키텍처를 연동합니다.
+## 3. 援ы쁽 ?댁슜 紐⑸줉
+1. **MCP Starter ?쇱씠釉뚮윭由?異붽?**
+   - `build.gradle`??`mcp-spring-boot-starter` (?먮뒗 ?대떦?섎뒗 Java MCP SDK) ?섏〈??異붽?.
+2. **SSE ?붾뱶?ъ씤???쒖꽦??(`com.aimsgraph.mcp` ?⑦궎吏 媛쒗렪)**
+   - 湲곗〈??`POST /api/v1/mcp/tools/execute` ???SDK?먯꽌 ?쒓났?섎뒗 `/mcp/sse` ?쇱슦?곕? ?ㅼ젙?⑸땲??
+   - MCP Tool ?대끂?뚯씠??`@McpTool` ???쇱씠釉뚮윭由ъ뿉 留욊쾶)???ъ슜?섏뿬 `search_graph`, `read_wiki_page` ?깆쓽 硫붿꽌?쒕? ?깅줉?⑸땲??
+3. **蹂댁븞 諛??몄쬆 ?곕룞**
+   - ?대씪?댁뼵??Claude Desktop)媛 HTTP ?ㅻ뜑瑜??듯빐 SSE ?곌껐 ?쒕룄 ?? 湲곗〈泥섎읆 `JwtInterceptor`瑜?嫄곗퀜 `workspaceId`瑜?媛?몄? ?몄뀡???좎?(Stateful)?섍굅?? ?붿껌留덈떎 ?앸퀎?섎룄濡??꾪궎?띿쿂瑜??곕룞?⑸땲??
 
-## 4. 제약 사항
-- 기존 `McpControllerTest`는 더 이상 유효하지 않으므로, SSE 스트리밍에 대한 MCP 컨트랙트 단위 테스트를 재작성해야 합니다.
-- 작업 완료 후 `c:\second brain\tasks.md` 파일에 Phase 6 항목을 추가하고 `[x]`로 완료 표시하세요.
+## 4. ?쒖빟 ?ы빆
+- 湲곗〈 `McpControllerTest`?????댁긽 ?좏슚?섏? ?딆쑝誘濡? SSE ?ㅽ듃由щ컢?????MCP 而⑦듃?숉듃 ?⑥쐞 ?뚯뒪?몃? ?ъ옉?깊빐???⑸땲??
+- ?묒뾽 ?꾨즺 ??`c:\second brain\tasks.md` ?뚯씪??Phase 6 ??ぉ??異붽??섍퀬 `[x]`濡??꾨즺 ?쒖떆?섏꽭??

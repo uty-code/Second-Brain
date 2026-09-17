@@ -1,3 +1,33 @@
+## [2026-07-18] AI 규칙 세분화(Rules Partitioning) 및 스마트 AI 리뷰어 구현 [완료됨]
+- **Goal:** 프로젝트의 복잡성 증가에 대비하여 규칙 파일을 공통, 백엔드, 프론트엔드로 세분화하고, AI 리뷰어가 PR 변경 영역을 자동 감지해 해당 규칙 파일만 동적 주입하도록 튜닝하여 토큰 절약 및 검사 정확도 제고.
+- **Affected Files:**
+  - [project-rules.md](file:///c:/second%20brain/rules/common/project-rules.md)
+  - [backend-rules.md](file:///c:/second%20brain/rules/backend/backend-rules.md)
+  - [frontend-rules.md](file:///c:/second%20brain/rules/frontend/frontend-rules.md)
+  - [run-ai-review.js](file:///c:/second%20brain/.github/scripts/run-ai-review.js)
+  - [GEMINI.md](file:///c:/second%20brain/GEMINI.md)
+
+## [2026-07-18] AI 코드 리뷰 및 테스트 자동화 파이프라인 구축 가이드 추가 [완료됨]
+- **Goal:** 프로젝트 헌법 및 가드레일을 준수하기 위한 AI 자동화 코드 리뷰 규칙(/review 스킬 연동) 및 Testcontainers 기반의 CI/CD 파이프라인 구축 가이드를 생성함.
+- **Affected Files:**
+  - [PIPELINE_GUIDE.md](file:///c:/second%20brain/docs/PIPELINE_GUIDE.md)
+
+## [2026-07-16] @ControllerAdvice 기반 글로벌 예외 핸들러 도입 [완료됨]
+- **Goal:** 컨트롤러마다 제각각이던 try-catch 예외 처리를 `@RestControllerAdvice` 기반의 글로벌 핸들러로 통합하여, 모든 API의 에러 응답을 `ErrorResponse(error, message, timestamp)` 포맷으로 표준화.
+- **원칙:** 즉시 재시도 또는 로컬 폴백이 필요한 경우에만 컨트롤러 내부 try-catch를 유지하고, 나머지는 글로벌 핸들러로 위임.
+- **New Files:**
+  - `GlobalExceptionHandler.java`: AccessDenied, 요청 파싱, Validation, 파일 업로드 크기 초과, IOException, 최종 안전망(Exception) 등 계층적 핸들러
+  - `ErrorResponse.java`: 통일된 에러 응답 record (error, message, timestamp)
+- **Modified Files:**
+  - `AnalyzeController.java`: analyzeFiles(), analyzeNotion() try-catch 제거 → throws Exception
+  - `WorkspaceController.java`: createWorkspace(), getWorkspaceGraph(), deleteWorkspaceData() try-catch 제거 → throws IOException
+  - `AuthController.java`: deleteAccount() try-catch 및 e.printStackTrace() 제거 → throws IOException
+  - `WikiController.java`: getWikiContent() try-catch 제거 → throws IOException
+- **유지된 try-catch (로컬 폴백 필요):**
+  - `WorkspaceController.listWorkspaces()`: IOException 시 빈 리스트 반환 (graceful degradation)
+  - `WikiController.resolveSlug()`: Exception 시 null 반환 (직접 파일 조회 폴백)
+  - `NotificationController`: SSE emitter 실패 시 즉시 리소스 정리
+
 ## [2026-06-09] Chat-Notion MCP 연동 기능 추가 (Micro-Task)
 - **Goal:** 채팅(Query) API 호출 시 명시적인 파라미터(useNotion=true)가 주어질 때만 Notion 문서를 검색하여 LLM에 프롬프트로 주입.
 - **Affected Files:**
@@ -105,3 +135,19 @@ otionPageId 추가.
 - **Plan:**
   - `extractKnowledge`와 `callResponsesAPI` 호출 시 `gpt-4o-mini` 모델 호출부에 `json_schema` 스펙을 주입하거나 LangChain4j `AiServices` 인터페이스를 통해 Structured Output을 보장합니다.
   - 기존의 수동 문자열 정규식 가공 구문(`replaceAll`)을 제거하고 JSON 파이프라인의 구조적 안전성을 검증합니다.
+
+## 2026-07-16: MSSQL WikiPage 본문 캐싱 하이브리드 동기화 도입 [완료]
+- **Goal:** 물리 마크다운 파일 실시간 디스크 I/O 조회로 인한 병목(특히 다중 에이전트 그래프 트래버설 시 누적 레이턴시)을 제거하기 위해, RDBMS(MSSQL)의 `WikiPage` 테이블을 캐시 저장소로 활용하는 하이브리드 아키텍처 도입.
+- **DDL:**
+  - `WikiPage` 테이블에 본문 저장을 위한 `content NVARCHAR(MAX)` 컬럼 추가.
+- **MyBatis 매퍼:**
+  - `WikiPageMapper.java` 및 `WikiPageMapper.xml`를 생성하여 SELECT, UPDATE, MERGE(Upsert) 구문 지원.
+- **비즈니스 로직 (WikiService):**
+  - Cache-first 조회 제공 (`getWikiContent`). Cache Miss 시에만 디스크에서 Lazy Loading 후 DB 캐시 Upsert.
+  - 양방향 동기화:
+    - 웹 UI 수정 시 (`saveOrUpdateWiki`): Redisson 락을 사용한 분산 동기화 제어(가상 스레드 친화적), DB 캐시 및 물리 파일 덮어쓰기, Neo4j 노드 업데이트.
+    - 외부 도구 로컬 수정 시 (`syncFileToDb`): 콘텐츠 감지 후 DB 캐시의 content 및 content_hash 최신화.
+- **컨트롤러 리팩토링:**
+  - `WikiController.java`에서 직접 디스크 I/O와 Neo4j 조회를 제어하던 로직을 `WikiService`로 위임하여 캡슐화.
+- **CORS Preflight OPTIONS 대응 패치:**
+  - 스프링 시큐리티 필터 체인 통과 시 브라우저의 OPTIONS Preflight 차단으로 인한 `Failed to fetch` 오류 해결을 위해, `SecurityConfig.java`에 OPTIONS 전역 허용 매처(`HttpMethod.OPTIONS, "/**"`) 설정 보강 완료.

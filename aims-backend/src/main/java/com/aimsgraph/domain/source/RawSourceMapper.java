@@ -5,6 +5,8 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface RawSourceMapper {
-    void insert(RawSource rawSource);
-    RawSource findByWorkspaceIdAndUri(@Param("workspaceId") String workspaceId, @Param("sourceUri") String sourceUri);
+  void insert(RawSource rawSource);
+
+  RawSource findByWorkspaceIdAndUri(
+      @Param("workspaceId") String workspaceId, @Param("sourceUri") String sourceUri);
 }

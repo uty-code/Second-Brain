@@ -1,3 +1,10 @@
+---
+title: "Architecture Specification"
+type: reference
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+
 # Architecture Specification: AIMS-Graph
 
 ## 1. 시스템 핵심 철학 (Andrej Karpathy's LLM Wiki Pattern)
@@ -7,13 +14,13 @@
 
 1. **Raw Sources (원본 소스)**: 수집된 원본 데이터(Notion, Slack, Git 등)로, LLM이 직접 읽기만 하며 변경하지 않습니다.
 2. **The Wiki (지식 위키)**: 에이전틱 프로세스를 거친 LLM이 100% 소유하고 관리하는 마크다운 파일 및 Neo4j 그래프 디렉토리입니다. 엔티티 페이지, 요약, 상호 연결된 지식망(인덱스 포함)이 이곳에 축적됩니다.
-3. **The Schema (규칙/스키마)**: LLM이 위키를 일관되게 관리하도록 지시하는 규칙(예: `GEMINI.md`, `rules/common/project-rules.md`)입니다.
+3. **The Schema (규칙/스키마)**: LLM이 위키를 일관되게 관리하도록 지시하는 규칙(예: [GEMINI.md](file:///c:/second%20brain/GEMINI.md), [project-rules.md](file:///c:/second%20brain/rules/common/project-rules.md))입니다.
 
 ## 1.1 디렉토리 구조 (Java 패키지)
 ```text
 AIMS-Graph-Backend/
-├── docker-compose.yml
-├── build.gradle
+├── [docker-compose.yml](file:///c:/second%20brain/docker-compose.yml)
+├── [build.gradle](file:///c:/second%20brain/aims-backend/build.gradle)
 ├── src/main/java/com/aimsgraph/
 │   ├── AimsGraphApplication.java
 │   ├── config/                    # Spring 설정 (DB, Kafka, Redis, Neo4j)
@@ -65,11 +72,11 @@ AIMS-Graph는 다중 계층 아키텍처 및 이벤트 주도 아키텍처(EDA)�
 
 ## 4. 실시간 탐색 시각화 (AI Gaze Tracking)
 AI 에이전트가 지식 그래프를 자율적으로 순회할 때, 사용자가 AI의 현재 관심 사항(Gaze)을 실시간으로 인지할 수 있도록 돕는 시각화 아키텍처입니다.
-- **백엔드**: `LlmService` 내의 에이전트 도구(`getNodeContext`, `readWikiPage` 등)가 실행될 때마다, `NotificationController`를 통해 해당 노드 ID 정보를 포함한 `ai_reading` 이벤트를 특정 워크스페이스 사용자에게 SSE로 실시간 브로드캐스트합니다.
+- **백엔드**: `LlmService` 내의 에이전트 도구(`getNodeContext`, `readWikiPage` 등)가 실행될 때마다, [NotificationController](file:///c:/second%20brain/aims-backend/src/main/java/com/aimsgraph/api/NotificationController.java)를 통해 해당 노드 ID 정보를 포함한 `ai_reading` 이벤트를 특정 워크스페이스 사용자에게 SSE로 실시간 브로드캐스트합니다.
 - **프론트엔드**: 클라이언트는 `/v1/notifications/sse` 커넥션을 맺고 실시간 스트림을 구독합니다. `ai_reading` 수신 시 `activeAiNodes` 전역 상태에 노드 ID를 등록하여 캔버스 내 해당 노드를 **에메랄드 그린 컬러 및 글로우 링(Glow Ring)** 효과로 3초 동안 하이라이팅 처리합니다.
 
 ## 5. 멀티테넌시 격리 및 계정 탈퇴 정책
-- **워크스페이스 격리**: 사용자별 워크스페이스 접근과 생성을 보장하기 위해 워크스페이스 디렉토리 및 Neo4j 노드 소유 식별자에 `ws-username` 및 `username_` 접두사를 강제 적용합니다. 타 사용자의 워크스페이스 명칭 조회를 원천 방어합니다.
+- **워크스페이스 격리**: 사용자별 워크스페이스 접근과 생성을 보장하기 위해 워크스페이스 디렉토리 및 Neo4j의 `workspaceId` 식별자에 `ws-username` 및 `username_workspace-name` 접두사 구조를 강제 부여하여 조회 및 생성을 격리합니다.
 - **계정 영구 탈퇴 (DELETE /v1/auth/account)**:
   - 사용자가 계정을 영구 탈퇴할 경우, 다음 3단계가 트랜잭션 및 파괴적 리소스 정리 프로세스로 동기 수행됩니다.
     1. **Neo4j 노드 삭제**: `MATCH (n) WHERE n.workspaceId = 'ws-' + $username OR n.workspaceId STARTS WITH $username + '_' DETACH DELETE n` 수행을 통해 해당 사용자의 모든 노드 및 관계 영구 제거.
@@ -92,5 +99,5 @@ AI 에이전트가 지식 그래프를 자율적으로 순회할 때, 사용자�
 
 ## 8. 다중 AI 모델 추론 및 위키 생성 아키텍처
 - 사용자는 UI를 통해 `gpt-4o-mini` 또는 `deepseek-v4` 모델을 선택적으로 요청에 실어 보낼 수 있습니다.
-- 백엔드 `LlmService`는 수신한 `X-AI-Model` 헤더에 따라 다이렉트 쿼리, 에이전트 순회, 그리고 위키 생성 작업을 처리할 때 각 AI 엔진을 동적으로 전환합니다.
+- 백엔드 [LlmService](file:///c:/second%20brain/aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java)는 수신한 `X-AI-Model` 헤더에 따라 다이렉트 쿼리, 에이전트 순회, 그리고 위키 생성 작업을 처리할 때 각 AI 엔진을 동적으로 전환합니다.
 - `deepseek-v4`인 경우, OpenRouter API 주소(`https://openrouter.ai/api/v1/chat/completions`)와 적절한 API 키(DB에 보관된 테넌트별 암호화 키 또는 환경 변수)를 사용하여 AI 추론 엔진 및 completions 응답 포맷을 기동합니다.

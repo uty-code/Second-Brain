@@ -2,6 +2,8 @@ package com.aimsgraph.api;
 
 import com.aimsgraph.auth.JwtInterceptor;
 import com.aimsgraph.domain.wiki.FileBackService;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -9,48 +11,50 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/v1/query")
 @RequiredArgsConstructor
 public class QueryController {
 
-    private final FileBackService fileBackService;
-    private final com.aimsgraph.ingest.LlmService llmService;
+  private final FileBackService fileBackService;
+  private final com.aimsgraph.ingest.LlmService llmService;
 
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> query(
-            @RequestBody QueryRequest request,
-            @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName) {
-        
-        String workspaceId = (String) RequestContextHolder.currentRequestAttributes()
-                .getAttribute(JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+  @PostMapping
+  public ResponseEntity<Map<String, Object>> query(
+      @RequestBody QueryRequest request,
+      @RequestHeader(value = "X-AI-Model", defaultValue = "gpt-4o-mini") String modelName) {
 
-        if (workspaceId == null || workspaceId.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("error", "UNAUTHORIZED", "message", "Workspace ID missing"));
-        }
+    String workspaceId =
+        (String)
+            RequestContextHolder.currentRequestAttributes()
+                .getAttribute(
+                    JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
 
-        com.aimsgraph.ingest.LlmService.AgentResponse qr = llmService.query(workspaceId, request.getQuery(), modelName, request.isUseNotion());
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("answer", qr.answer());
-        response.put("graphUpdated", qr.graphUpdated());
-
-        if (request.isFile_back()) {
-            String title = "Insight from: " + request.getQuery();
-            String fileName = fileBackService.saveInsight(workspaceId, title, qr.answer());
-            response.put("insightFile", fileName);
-        }
-
-        return ResponseEntity.ok(response);
+    if (workspaceId == null || workspaceId.isEmpty()) {
+      return ResponseEntity.status(401)
+          .body(Map.of("error", "UNAUTHORIZED", "message", "Workspace ID missing"));
     }
 
-    @Data
-    public static class QueryRequest {
-        private String query;
-        private boolean file_back;
-        private boolean useNotion;
+    com.aimsgraph.ingest.LlmService.AgentResponse qr =
+        llmService.query(workspaceId, request.getQuery(), modelName, request.isUseNotion());
+
+    Map<String, Object> response = new HashMap<>();
+    response.put("answer", qr.answer());
+    response.put("graphUpdated", qr.graphUpdated());
+
+    if (request.isFile_back()) {
+      String title = "Insight from: " + request.getQuery();
+      String fileName = fileBackService.saveInsight(workspaceId, title, qr.answer());
+      response.put("insightFile", fileName);
     }
+
+    return ResponseEntity.ok(response);
+  }
+
+  @Data
+  public static class QueryRequest {
+    private String query;
+    private boolean file_back;
+    private boolean useNotion;
+  }
 }

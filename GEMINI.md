@@ -52,3 +52,6 @@
 - UI/UX 가이드: `docs/UI_GUIDE.md` (프론트엔드 작업 시 필수)
 - 위키 규칙: `docs/WIKI_SCHEMA.md`
 - 환경 세팅: `docs/SETUP.md`
+- 공통 규칙: [project-rules.md](file:///c:/second%20brain/rules/common/project-rules.md)
+- 백엔드 규칙: [backend-rules.md](file:///c:/second%20brain/rules/backend/backend-rules.md)
+- 프론트엔드 규칙: [frontend-rules.md](file:///c:/second%20brain/rules/frontend/frontend-rules.md)

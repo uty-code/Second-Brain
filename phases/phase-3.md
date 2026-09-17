@@ -1,28 +1,34 @@
-# Phase 3 지시서: Ingestion Worker 구현
-> **Status: [완료됨]**
-> - **히스토리**: Kafka 이벤트 수신 및 LLM 에이전트 지식 추출, Redis 분산 락 기반 마크다운 위키 파일 시스템 및 Neo4j 동시 갱신 구현 완료.
+﻿---
+title: "Phase 3: "
+phase_number: 3
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━**: Kafka ?대깽???섏떊 諛?LLM ?먯씠?꾪듃 吏??異붿텧, Redis 遺꾩궛 ??湲곕컲 留덊겕?ㅼ슫 ?꾪궎 ?뚯씪 ?쒖뒪??諛?Neo4j ?숈떆 媛깆떊 援ы쁽 ?꾨즺.
 
-## 1. 개요 및 목표
-- Kafka 이벤트를 수신하여 동작하는 Worker 로직(Agentic Core 레이어)을 개발합니다.
-- 수집된 원본 문서를 바탕으로 위키(Markdown)를 파일 시스템에 생성/갱신하고, Neo4j에 노드/관계를 증분 업데이트합니다.
-- Redis 분산 락을 통해 `index.md`와 `log.md` 동시성 문제를 제어합니다.
+## 1. 媛쒖슂 諛?紐⑺몴
+- Kafka ?대깽?몃? ?섏떊?섏뿬 ?숈옉?섎뒗 Worker 濡쒖쭅(Agentic Core ?덉씠????媛쒕컻?⑸땲??
+- ?섏쭛???먮낯 臾몄꽌瑜?諛뷀깢?쇰줈 ?꾪궎(Markdown)瑜??뚯씪 ?쒖뒪?쒖뿉 ?앹꽦/媛깆떊?섍퀬, Neo4j???몃뱶/愿怨꾨? 利앸텇 ?낅뜲?댄듃?⑸땲??
+- Redis 遺꾩궛 ?쎌쓣 ?듯빐 `index.md`? `log.md` ?숈떆??臾몄젣瑜??쒖뼱?⑸땲??
 
-## 2. 참조 문서 (반드시 읽을 것)
-- `GEMINI.md` 및 `rules/common/project-rules.md` (TDD Guard 준수)
-- `docs/ADR.md` (ADR-002: Ingest 시 Index & Log 파일 관리와 증분 업데이트)
-- `docs/WIKI_SCHEMA.md` (위키 파일 생성 및 카탈로그 갱신 규칙)
+## 2. 李몄“ 臾몄꽌 (諛섎뱶???쎌쓣 寃?
+- `GEMINI.md` 諛?`rules/common/project-rules.md` (TDD Guard 以??
+- `docs/ADR.md` (ADR-002: Ingest ??Index & Log ?뚯씪 愿由ъ? 利앸텇 ?낅뜲?댄듃)
+- `docs/WIKI_SCHEMA.md` (?꾪궎 ?뚯씪 ?앹꽦 諛?移댄깉濡쒓렇 媛깆떊 洹쒖튃)
 
-## 3. 구현 내용 목록
-1. **Kafka Consumer 구현 (`com.aimsgraph.ingest` 패키지)**
-   - `aims.outbox.events` 토픽에서 이벤트를 수신하는 Listener 작성.
-   - 테넌트(`workspaceId`)별 API Key 복호화 및 에이전트 지식 추출 로직(Mock LLM Call) 작성.
-2. **분산 락을 활용한 위키 파일 갱신**
-   - Redisson을 사용해 `wiki:index.md`, `wiki:log.md` 락을 획득하는 로직 작성.
-   - 로컬 파일 시스템(`wiki/...`)에 위키 파일 생성/갱신 처리 (`WIKI_SCHEMA.md` 준수).
-3. **Neo4j 증분 갱신 로직**
-   - 수집된 Concept/Entity 노드를 `Neo4jTemplate` 혹은 Repository로 머지(MERGE)하는 로직 개발.
+## 3. 援ы쁽 ?댁슜 紐⑸줉
+1. **Kafka Consumer 援ы쁽 (`com.aimsgraph.ingest` ?⑦궎吏)**
+   - `aims.outbox.events` ?좏뵿?먯꽌 ?대깽?몃? ?섏떊?섎뒗 Listener ?묒꽦.
+   - ?뚮꼳??`workspaceId`)蹂?API Key 蹂듯샇??諛??먯씠?꾪듃 吏??異붿텧 濡쒖쭅(Mock LLM Call) ?묒꽦.
+2. **遺꾩궛 ?쎌쓣 ?쒖슜???꾪궎 ?뚯씪 媛깆떊**
+   - Redisson???ъ슜??`wiki:index.md`, `wiki:log.md` ?쎌쓣 ?띾뱷?섎뒗 濡쒖쭅 ?묒꽦.
+   - 濡쒖뺄 ?뚯씪 ?쒖뒪??`wiki/...`)???꾪궎 ?뚯씪 ?앹꽦/媛깆떊 泥섎━ (`WIKI_SCHEMA.md` 以??.
+3. **Neo4j 利앸텇 媛깆떊 濡쒖쭅**
+   - ?섏쭛??Concept/Entity ?몃뱶瑜?`Neo4jTemplate` ?뱀? Repository濡?癒몄?(MERGE)?섎뒗 濡쒖쭅 媛쒕컻.
 
-## 4. 제약 사항
-- 반드시 테스트 코드 작성 후 기능 구현 (TDD 방식). 
-- (※ 주의: 현재 Docker 데스크톱 미구동으로 Testcontainers 기동 에러가 발생할 수 있습니다. 로직상 테스트 코드는 반드시 작성하되, Connection Refused 에러로 인한 Circuit Breaker Hook 실패 처리는 무시하고 구현을 완료하세요.)
-- 작업 완료 후 `c:\second brain\tasks.md` 파일에서 Phase 3를 `[x]`로 갱신하고 보고하세요.
+## 4. ?쒖빟 ?ы빆
+- 諛섎뱶???뚯뒪??肄붾뱶 ?묒꽦 ??湲곕뒫 援ы쁽 (TDD 諛⑹떇). 
+- (??二쇱쓽: ?꾩옱 Docker ?곗뒪?ы넲 誘멸뎄?숈쑝濡?Testcontainers 湲곕룞 ?먮윭媛 諛쒖깮?????덉뒿?덈떎. 濡쒖쭅???뚯뒪??肄붾뱶??諛섎뱶???묒꽦?섎릺, Connection Refused ?먮윭濡??명븳 Circuit Breaker Hook ?ㅽ뙣 泥섎━??臾댁떆?섍퀬 援ы쁽???꾨즺?섏꽭??)
+- ?묒뾽 ?꾨즺 ??`c:\second brain\tasks.md` ?뚯씪?먯꽌 Phase 3瑜?`[x]`濡?媛깆떊?섍퀬 蹂닿퀬?섏꽭??

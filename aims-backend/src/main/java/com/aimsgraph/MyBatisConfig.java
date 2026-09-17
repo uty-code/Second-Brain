@@ -5,5 +5,4 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @MapperScan("com.aimsgraph")
-public class MyBatisConfig {
-}
+public class MyBatisConfig {}

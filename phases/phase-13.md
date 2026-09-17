@@ -1,18 +1,23 @@
-Status: [완료됨]
+﻿---
+title: "Phase 13: "
+phase_number: 13
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
 
-# Phase 13: B2B 로그아웃 기능 구현
+# Phase 13: B2B 濡쒓렇?꾩썐 湲곕뒫 援ы쁽
 
-## 목표
-- 프론트엔드: 글로벌 네비게이션 로그아웃 버튼 (lucide-react LogOut 아이콘)
-- 클릭 시 상태(useAppStore) 초기화 및 `/login` 리다이렉트
-- 백엔드: `POST /v1/auth/logout` API
-- Redis `RedissonClient` 블랙리스트(Blacklisting) 구현
-- `JwtInterceptor`에서 블랙리스트 검증 처리 (401 Unauthorized)
+## 紐⑺몴
+- ?꾨줎?몄뿏?? 湲濡쒕쾶 ?ㅻ퉬寃뚯씠??濡쒓렇?꾩썐 踰꾪듉 (lucide-react LogOut ?꾩씠肄?
+- ?대┃ ???곹깭(useAppStore) 珥덇린??諛?`/login` 由щ떎?대젆??- 諛깆뿏?? `POST /v1/auth/logout` API
+- Redis `RedissonClient` 釉붾옓由ъ뒪??Blacklisting) 援ы쁽
+- `JwtInterceptor`?먯꽌 釉붾옓由ъ뒪??寃利?泥섎━ (401 Unauthorized)
 
-## 진행 히스토리
-- 2026-06-11: `AuthController`에 logout 엔드포인트 추가 및 `RedissonClient` 연동
-- 2026-06-11: `JwtInterceptor`에 블랙리스트 확인 로직 작성
-- 2026-06-11: `JwtUtil` 만료 시간(TTL) 계산 메서드(`getExpirationFromToken`) 추가
-- 2026-06-11: 프론트엔드 `api.ts`에 `logoutUser` 호출 연동
-- 2026-06-11: 프론트엔드 `Sidebar.tsx`에 `LogOut` 아이콘 추가 및 Zustand 상태 초기화 로직 구현
-- 2026-06-11: 백엔드 `src/test/`에 TDD 기반 `AuthControllerTest`, `JwtInterceptorBlacklistTest` 테스트 통과 완료.
+## 吏꾪뻾 ?덉뒪?좊━
+- 2026-06-11: `AuthController`??logout ?붾뱶?ъ씤??異붽? 諛?`RedissonClient` ?곕룞
+- 2026-06-11: `JwtInterceptor`??釉붾옓由ъ뒪???뺤씤 濡쒖쭅 ?묒꽦
+- 2026-06-11: `JwtUtil` 留뚮즺 ?쒓컙(TTL) 怨꾩궛 硫붿꽌??`getExpirationFromToken`) 異붽?
+- 2026-06-11: ?꾨줎?몄뿏??`api.ts`??`logoutUser` ?몄텧 ?곕룞
+- 2026-06-11: ?꾨줎?몄뿏??`Sidebar.tsx`??`LogOut` ?꾩씠肄?異붽? 諛?Zustand ?곹깭 珥덇린??濡쒖쭅 援ы쁽
+- 2026-06-11: 諛깆뿏??`src/test/`??TDD 湲곕컲 `AuthControllerTest`, `JwtInterceptorBlacklistTest` ?뚯뒪???듦낵 ?꾨즺.

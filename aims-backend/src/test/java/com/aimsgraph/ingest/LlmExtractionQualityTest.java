@@ -1,39 +1,48 @@
 package com.aimsgraph.ingest;
 
+import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
+import com.aimsgraph.domain.workspace.WorkspaceService;
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import com.aimsgraph.domain.workspace.WorkspaceService;
-import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
-
 public class LlmExtractionQualityTest {
 
-    @Test
-    public void testExtractionQuality() throws Exception {
-        // Mock dependencies
-        WorkspaceService workspaceService = Mockito.mock(WorkspaceService.class);
-        WorkspaceCredentialsService credentialsService = Mockito.mock(WorkspaceCredentialsService.class);
-        Neo4jClient neo4jClient = Mockito.mock(Neo4jClient.class, Mockito.RETURNS_DEEP_STUBS);
-        NotionIngestService notionIngestService = Mockito.mock(NotionIngestService.class);
+  @Test
+  public void testExtractionQuality() throws Exception {
+    // Mock dependencies
+    WorkspaceService workspaceService = Mockito.mock(WorkspaceService.class);
+    WorkspaceCredentialsService credentialsService =
+        Mockito.mock(WorkspaceCredentialsService.class);
+    Neo4jClient neo4jClient = Mockito.mock(Neo4jClient.class, Mockito.RETURNS_DEEP_STUBS);
+    NotionIngestService notionIngestService = Mockito.mock(NotionIngestService.class);
 
-        // Mock Neo4jClient behavior using deep stubs
-        Mockito.when(neo4jClient.query(Mockito.anyString()).bind(Mockito.any()).to(Mockito.anyString()).fetch().all())
-               .thenReturn(Collections.emptyList());
+    // Mock Neo4jClient behavior using deep stubs
+    Mockito.when(
+            neo4jClient
+                .query(Mockito.anyString())
+                .bind(Mockito.any())
+                .to(Mockito.anyString())
+                .fetch()
+                .all())
+        .thenReturn(Collections.emptyList());
 
-        // Create LlmService instance manually
-        LlmService llmService = new LlmService(workspaceService, credentialsService, neo4jClient, notionIngestService);
-        ReflectionTestUtils.setField(llmService, "defaultApiKey", System.getenv("OPENAI_API_KEY") != null ? System.getenv("OPENAI_API_KEY") : "demo");
-        ReflectionTestUtils.setField(llmService, "wikiBaseDir", "workspaces");
+    // Create LlmService instance manually
+    LlmService llmService =
+        new LlmService(workspaceService, credentialsService, neo4jClient, notionIngestService);
+    ReflectionTestUtils.setField(
+        llmService,
+        "defaultApiKey",
+        System.getenv("OPENAI_API_KEY") != null ? System.getenv("OPENAI_API_KEY") : "demo");
+    ReflectionTestUtils.setField(llmService, "wikiBaseDir", "workspaces");
 
-        // Sample Long Markdown Text about RAG
-        String sampleText = """
+    // Sample Long Markdown Text about RAG
+    String sampleText =
+        """
         # Retrieval-Augmented Generation (RAG) 개념과 장점
 
         ## 1. RAG의 정의
@@ -52,22 +61,25 @@ public class LlmExtractionQualityTest {
         - **출처 추적 가능**: 답변 생성에 사용된 문서의 출처를 명확히 제시할 수 있어 신뢰성이 높습니다.
         """;
 
-        // Access private method via reflection
-        Method method = LlmService.class.getDeclaredMethod("callResponsesAPI", List.class, String.class, String.class, String.class);
-        method.setAccessible(true);
+    // Access private method via reflection
+    Method method =
+        LlmService.class.getDeclaredMethod(
+            "callResponsesAPI", List.class, String.class, String.class, String.class);
+    method.setAccessible(true);
 
-        System.out.println("==========================================");
-        System.out.println("Starting LLM Extraction...");
-        System.out.println("==========================================");
-        
-        long startTime = System.currentTimeMillis();
-        String result = (String) method.invoke(llmService, null, sampleText, "test-workspace", "gpt-4o-mini");
-        long endTime = System.currentTimeMillis();
+    System.out.println("==========================================");
+    System.out.println("Starting LLM Extraction...");
+    System.out.println("==========================================");
 
-        System.out.println("==========================================");
-        System.out.println("Extraction Complete in " + (endTime - startTime) + "ms");
-        System.out.println("Result:");
-        System.out.println(result);
-        System.out.println("==========================================");
-    }
+    long startTime = System.currentTimeMillis();
+    String result =
+        (String) method.invoke(llmService, null, sampleText, "test-workspace", "gpt-4o-mini");
+    long endTime = System.currentTimeMillis();
+
+    System.out.println("==========================================");
+    System.out.println("Extraction Complete in " + (endTime - startTime) + "ms");
+    System.out.println("Result:");
+    System.out.println(result);
+    System.out.println("==========================================");
+  }
 }

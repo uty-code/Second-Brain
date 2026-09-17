@@ -5,5 +5,4 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @MapperScan("com.aimsgraph.domain.**.mapper")
-public class DbConfig {
-}
+public class DbConfig {}

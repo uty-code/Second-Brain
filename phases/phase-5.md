@@ -1,31 +1,37 @@
-# Phase 5 지시서: 자가 치유 지식 린터 (Self-Healing Daemon)
-> **Status: [완료됨]**
-> - **히스토리**: Neo4j 서브그래프 기반 고아 노드 및 충돌 데이터 검출 린터 데몬 구현. STALE_DATA 등 유지보수 빚 자동 탐지 로직 적용.
+﻿---
+title: "Phase 5: "
+phase_number: 5
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━**: Neo4j ?쒕툕洹몃옒??湲곕컲 怨좎븘 ?몃뱶 諛?異⑸룎 ?곗씠??寃異?由고꽣 ?곕が 援ы쁽. STALE_DATA ???좎?蹂댁닔 鍮??먮룞 ?먯? 濡쒖쭅 ?곸슜.
 
-> **Status: [완료됨]**
-> - **히스토리**: 초기 구현 시 단일 테넌트(Global Dir & Lock)로 작성되었으나, Phase 5.5 보수 작업을 통해 `workspaceId` 기반의 완벽한 논리/물리 파일 시스템 및 분산 락 격리(Multi-Tenancy) 처리가 완료됨.
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━**: 珥덇린 援ы쁽 ???⑥씪 ?뚮꼳??Global Dir & Lock)濡??묒꽦?섏뿀?쇰굹, Phase 5.5 蹂댁닔 ?묒뾽???듯빐 `workspaceId` 湲곕컲???꾨꼍???쇰━/臾쇰━ ?뚯씪 ?쒖뒪??諛?遺꾩궛 ??寃⑸━(Multi-Tenancy) 泥섎━媛 ?꾨즺??
 
-## 1. 개요 및 목표
-- AIMS-Graph의 핵심 유지보수 로직인 자가 치유 린터 데몬을 개발합니다.
-- 변경된 노드의 서브그래프를 스캔하여 고아 문서(Orphan Page), 깨진 링크, 구식 데이터 등을 감지하고, 가능한 부분은 자동 교정(Auto-fix)합니다.
+## 1. 媛쒖슂 諛?紐⑺몴
+- AIMS-Graph???듭떖 ?좎?蹂댁닔 濡쒖쭅???먭? 移섏쑀 由고꽣 ?곕が??媛쒕컻?⑸땲??
+- 蹂寃쎈맂 ?몃뱶???쒕툕洹몃옒?꾨? ?ㅼ틪?섏뿬 怨좎븘 臾몄꽌(Orphan Page), 源⑥쭊 留곹겕, 援ъ떇 ?곗씠???깆쓣 媛먯??섍퀬, 媛?ν븳 遺遺꾩? ?먮룞 援먯젙(Auto-fix)?⑸땲??
 
-## 2. 참조 문서
-- `GEMINI.md` 및 `rules/common/project-rules.md` (TDD Guard 준수)
-- `docs/ADR.md` (ADR-005: 비용 절감형 자가 치유 지식 린터 데몬)
-- `docs/WIKI_SCHEMA.md` (7. Lint 데몬 판별 규칙)
-- `docs/API_SPEC.md` (4. Lint API 스펙)
+## 2. 李몄“ 臾몄꽌
+- `GEMINI.md` 諛?`rules/common/project-rules.md` (TDD Guard 以??
+- `docs/ADR.md` (ADR-005: 鍮꾩슜 ?덇컧???먭? 移섏쑀 吏??由고꽣 ?곕が)
+- `docs/WIKI_SCHEMA.md` (7. Lint ?곕が ?먮퀎 洹쒖튃)
+- `docs/API_SPEC.md` (4. Lint API ?ㅽ럺)
 
-## 3. 구현 내용 목록
-1. **Lint Core 로직 개발 (`com.aimsgraph.lint` 패키지)**
-   - `WIKI_SCHEMA.md`의 판별 규칙(ORPHAN_PAGE, BROKEN_LINK, STALE_DATA, CONTRADICTION, MISSING_FRONTMATTER)을 확인하는 검사 로직 구현.
-   - 자동 교정 가능 항목(ORPHAN_PAGE 링크 복구, MISSING_FRONTMATTER 채우기)에 대한 Auto-fix 기능 구현.
-2. **Neo4j Subgraph 추출 및 린트 스케줄러**
-   - 최근 변경된 노드의 의존성 하위 트리를 Neo4j 쿼리로 추출.
-   - Spring `@Scheduled`를 활용해 데몬 스레드(가상 스레드 권장)로 백그라운드 주기적 실행.
-3. **내부 통제용 Lint API 제공**
-   - `POST /api/internal/lint` 엔드포인트 구현 (요청 시 즉시 린트 수행 및 결과 JSON 반환).
+## 3. 援ы쁽 ?댁슜 紐⑸줉
+1. **Lint Core 濡쒖쭅 媛쒕컻 (`com.aimsgraph.lint` ?⑦궎吏)**
+   - `WIKI_SCHEMA.md`???먮퀎 洹쒖튃(ORPHAN_PAGE, BROKEN_LINK, STALE_DATA, CONTRADICTION, MISSING_FRONTMATTER)???뺤씤?섎뒗 寃??濡쒖쭅 援ы쁽.
+   - ?먮룞 援먯젙 媛????ぉ(ORPHAN_PAGE 留곹겕 蹂듦뎄, MISSING_FRONTMATTER 梨꾩슦湲??????Auto-fix 湲곕뒫 援ы쁽.
+2. **Neo4j Subgraph 異붿텧 諛?由고듃 ?ㅼ?以꾨윭**
+   - 理쒓렐 蹂寃쎈맂 ?몃뱶???섏〈???섏쐞 ?몃━瑜?Neo4j 荑쇰━濡?異붿텧.
+   - Spring `@Scheduled`瑜??쒖슜???곕が ?ㅻ젅??媛???ㅻ젅??沅뚯옣)濡?諛깃렇?쇱슫??二쇨린???ㅽ뻾.
+3. **?대? ?듭젣??Lint API ?쒓났**
+   - `POST /api/internal/lint` ?붾뱶?ъ씤??援ы쁽 (?붿껌 ??利됱떆 由고듃 ?섑뻾 諛?寃곌낵 JSON 諛섑솚).
 
-## 4. 제약 사항
-- 반드시 테스트 코드(`src/test/...`) 작성 후 기능 구현 (TDD 방식).
-- 블로킹 I/O 대기시간이 발생하므로 가상 스레드(Virtual Threads) 위에서 동작하는지 고려하세요.
-- 작업 완료 후 `c:\second brain\tasks.md` 파일에서 Phase 5를 `[x]`로 갱신하고 최종 완료 보고를 작성하세요.
+## 4. ?쒖빟 ?ы빆
+- 諛섎뱶???뚯뒪??肄붾뱶(`src/test/...`) ?묒꽦 ??湲곕뒫 援ы쁽 (TDD 諛⑹떇).
+- 釉붾줈??I/O ?湲곗떆媛꾩씠 諛쒖깮?섎?濡?媛???ㅻ젅??Virtual Threads) ?꾩뿉???숈옉?섎뒗吏 怨좊젮?섏꽭??
+- ?묒뾽 ?꾨즺 ??`c:\second brain\tasks.md` ?뚯씪?먯꽌 Phase 5瑜?`[x]`濡?媛깆떊?섍퀬 理쒖쥌 ?꾨즺 蹂닿퀬瑜??묒꽦?섏꽭??

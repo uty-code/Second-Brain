@@ -1,13 +1,15 @@
 package com.aimsgraph.outbox;
 
-import org.apache.ibatis.annotations.Mapper;
 import java.util.List;
-import java.util.UUID;
+import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface OutboxEventMapper {
-    void insert(OutboxEvent outboxEvent);
-    List<OutboxEvent> findByWorkspaceId(String workspaceId);
-    List<OutboxEvent> findPendingEvents();
-    void updateStatus(String id, String status);
+  void insert(OutboxEvent outboxEvent);
+
+  List<OutboxEvent> findByWorkspaceId(String workspaceId);
+
+  List<OutboxEvent> findPendingEvents();
+
+  void updateStatus(String id, String status);
 }

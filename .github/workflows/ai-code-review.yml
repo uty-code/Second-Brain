@@ -1,0 +1,36 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'aims-backend/src/**'
+      - 'frontend/src/**'
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Octokit Dependencies
+        run: npm install @octokit/action
+
+      - name: Run AI Review Script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # 1. PR Diff를 임시 파일로 추출
+          git diff origin/${{ github.base_ref }}...HEAD > pr_diff.txt
+          
+          # 2. AI 리뷰 헬퍼 Node.js 스크립트 실행
+          node .github/scripts/run-ai-review.js pr_diff.txt

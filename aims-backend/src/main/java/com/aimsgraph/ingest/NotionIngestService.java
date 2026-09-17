@@ -1,129 +1,129 @@
 package com.aimsgraph.ingest;
 
+import com.aimsgraph.domain.workspace.WorkspaceCredentials;
+import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import com.aimsgraph.domain.workspace.WorkspaceCredentialsService;
-import com.aimsgraph.domain.workspace.WorkspaceCredentials;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotionIngestService {
 
-    private final ObjectMapper objectMapper;
-    private final WorkspaceCredentialsService credentialsService;
+  private final ObjectMapper objectMapper;
+  private final WorkspaceCredentialsService credentialsService;
 
-    public String fetchNotionPageText(String pageId, String workspaceId) {
-        WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
-        String apiKey = creds != null ? creds.getNotionApiKey() : null;
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalArgumentException("Notion API Key is not configured for this workspace.");
-        }
-        String cleanId = pageId.split("\\?")[0].replaceAll("[^a-zA-Z0-9]", "");
-        if (cleanId.length() >= 32) {
-            cleanId = cleanId.substring(cleanId.length() - 32);
-        } else {
-            throw new IllegalArgumentException("Invalid Notion Page ID or URL format.");
-        }
-        log.info("Fetching Notion page blocks for pageId: {}", cleanId);
-        RestClient restClient = RestClient.builder()
-                .baseUrl("https://api.notion.com/v1/blocks/" + cleanId + "/children")
-                .defaultHeader("Authorization", "Bearer " + apiKey)
-                .defaultHeader("Notion-Version", "2022-06-28")
-                .build();
-
-        String responseBody = restClient.get()
-                .retrieve()
-                .body(String.class);
-
-        return extractTextFromBlocks(responseBody);
+  public String fetchNotionPageText(String pageId, String workspaceId) {
+    WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+    String apiKey = creds != null ? creds.getNotionApiKey() : null;
+    if (apiKey == null || apiKey.isBlank()) {
+      throw new IllegalArgumentException("Notion API Key is not configured for this workspace.");
     }
+    String cleanId = pageId.split("\\?")[0].replaceAll("[^a-zA-Z0-9]", "");
+    if (cleanId.length() >= 32) {
+      cleanId = cleanId.substring(cleanId.length() - 32);
+    } else {
+      throw new IllegalArgumentException("Invalid Notion Page ID or URL format.");
+    }
+    log.info("Fetching Notion page blocks for pageId: {}", cleanId);
+    RestClient restClient =
+        RestClient.builder()
+            .baseUrl("https://api.notion.com/v1/blocks/" + cleanId + "/children")
+            .defaultHeader("Authorization", "Bearer " + apiKey)
+            .defaultHeader("Notion-Version", "2022-06-28")
+            .build();
 
-    private String extractTextFromBlocks(String jsonResponse) {
-        StringBuilder sb = new StringBuilder();
-        try {
-            JsonNode root = objectMapper.readTree(jsonResponse);
-            JsonNode results = root.path("results");
-            if (results.isArray()) {
-                for (JsonNode block : results) {
-                    String type = block.path("type").asText();
-                    JsonNode typeNode = block.path(type);
-                    if (typeNode.isObject()) {
-                        JsonNode richTextArray = typeNode.path("rich_text");
-                        if (richTextArray.isArray()) {
-                            for (JsonNode richText : richTextArray) {
-                                sb.append(richText.path("plain_text").asText());
-                            }
-                            sb.append("\n\n");
-                        }
-                    }
-                }
+    String responseBody = restClient.get().retrieve().body(String.class);
+
+    return extractTextFromBlocks(responseBody);
+  }
+
+  private String extractTextFromBlocks(String jsonResponse) {
+    StringBuilder sb = new StringBuilder();
+    try {
+      JsonNode root = objectMapper.readTree(jsonResponse);
+      JsonNode results = root.path("results");
+      if (results.isArray()) {
+        for (JsonNode block : results) {
+          String type = block.path("type").asText();
+          JsonNode typeNode = block.path(type);
+          if (typeNode.isObject()) {
+            JsonNode richTextArray = typeNode.path("rich_text");
+            if (richTextArray.isArray()) {
+              for (JsonNode richText : richTextArray) {
+                sb.append(richText.path("plain_text").asText());
+              }
+              sb.append("\n\n");
             }
-        } catch (Exception e) {
-            log.error("Failed to parse Notion response", e);
-            throw new RuntimeException("Failed to parse Notion API response", e);
+          }
         }
-        return sb.toString();
+      }
+    } catch (Exception e) {
+      log.error("Failed to parse Notion response", e);
+      throw new RuntimeException("Failed to parse Notion API response", e);
     }
+    return sb.toString();
+  }
 
-    public boolean verifyToken(String apiKey) {
-        try {
-            log.info("Verifying Notion API token...");
-            RestClient restClient = RestClient.builder()
-                    .baseUrl("https://api.notion.com/v1/users/me")
-                    .defaultHeader("Authorization", "Bearer " + apiKey)
-                    .defaultHeader("Notion-Version", "2022-06-28")
-                    .build();
+  public boolean verifyToken(String apiKey) {
+    try {
+      log.info("Verifying Notion API token...");
+      RestClient restClient =
+          RestClient.builder()
+              .baseUrl("https://api.notion.com/v1/users/me")
+              .defaultHeader("Authorization", "Bearer " + apiKey)
+              .defaultHeader("Notion-Version", "2022-06-28")
+              .build();
 
-            org.springframework.http.ResponseEntity<String> response = restClient.get()
-                    .retrieve()
-                    .toEntity(String.class);
+      org.springframework.http.ResponseEntity<String> response =
+          restClient.get().retrieve().toEntity(String.class);
 
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            log.error("Token verification failed: {}", e.getMessage());
-            return false;
-        }
+      return response.getStatusCode().is2xxSuccessful();
+    } catch (Exception e) {
+      log.error("Token verification failed: {}", e.getMessage());
+      return false;
     }
+  }
 
-    public boolean verifyTokenForWorkspace(String workspaceId) {
-        WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
-        String apiKey = creds != null ? creds.getNotionApiKey() : null;
-        if (apiKey == null || apiKey.isBlank()) {
-            return false;
-        }
-        return verifyToken(apiKey);
+  public boolean verifyTokenForWorkspace(String workspaceId) {
+    WorkspaceCredentials creds = credentialsService.getCredentials(workspaceId);
+    String apiKey = creds != null ? creds.getNotionApiKey() : null;
+    if (apiKey == null || apiKey.isBlank()) {
+      return false;
     }
-    public String searchNotionPageId(String query, String apiKey) {
-        try {
-            log.info("Searching Notion for query: {}", query);
-            RestClient restClient = RestClient.builder()
-                    .baseUrl("https://api.notion.com/v1/search")
-                    .defaultHeader("Authorization", "Bearer " + apiKey)
-                    .defaultHeader("Notion-Version", "2022-06-28")
-                    .defaultHeader("Content-Type", "application/json")
-                    .build();
-            
-            String requestBody = "{\"query\":\"" + query.replace("\"", "\\\"") + "\",\"filter\":{\"value\":\"page\",\"property\":\"object\"},\"page_size\":1}";
-            
-            String responseBody = restClient.post()
-                    .body(requestBody)
-                    .retrieve()
-                    .body(String.class);
-                    
-            JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode results = root.path("results");
-            if (results.isArray() && results.size() > 0) {
-                return results.get(0).path("id").asText();
-            }
-        } catch (Exception e) {
-            log.error("Failed to search Notion page for query: {}", query, e);
-        }
-        return null;
+    return verifyToken(apiKey);
+  }
+
+  public String searchNotionPageId(String query, String apiKey) {
+    try {
+      log.info("Searching Notion for query: {}", query);
+      RestClient restClient =
+          RestClient.builder()
+              .baseUrl("https://api.notion.com/v1/search")
+              .defaultHeader("Authorization", "Bearer " + apiKey)
+              .defaultHeader("Notion-Version", "2022-06-28")
+              .defaultHeader("Content-Type", "application/json")
+              .build();
+
+      String requestBody =
+          "{\"query\":\""
+              + query.replace("\"", "\\\"")
+              + "\",\"filter\":{\"value\":\"page\",\"property\":\"object\"},\"page_size\":1}";
+
+      String responseBody = restClient.post().body(requestBody).retrieve().body(String.class);
+
+      JsonNode root = objectMapper.readTree(responseBody);
+      JsonNode results = root.path("results");
+      if (results.isArray() && results.size() > 0) {
+        return results.get(0).path("id").asText();
+      }
+    } catch (Exception e) {
+      log.error("Failed to search Notion page for query: {}", query, e);
     }
+    return null;
+  }
 }

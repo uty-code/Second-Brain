@@ -1,23 +1,28 @@
-# Phase 9: 중앙 캔버스 및 지식 그래프 렌더링
+﻿---
+title: "Phase 9: 以묒븰 罹붾쾭??諛?吏??洹몃옒???뚮뜑留?"
+phase_number: 9
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━**:
+>   - `react-force-graph-2d`, `react-dropzone`, `lucide-react` ?⑦궎吏 ?ㅼ튂 ?꾨즺.
+>   - `UI_GUIDE.md` 5踰???ぉ??吏移⑥뿉 ?곕씪 `GraphCanvas` 而댄룷?뚰듃 ?앹꽦. ?⑥깋(zinc-200), 吏곸꽑(zinc-600), ?щ챸 ?쇰꺼, Hover ?곹샇?묒슜 援ы쁽 ?꾨즺.
+>   - `react-dropzone`???쒖슜???뚯씪 ?낅줈?????`EmptyState` 而댄룷?뚰듃 援ы쁽.
+>   - `page.tsx`???붾? ?곗씠?곕? 二쇱엯?섏뿬 洹몃옒???뚮뜑留??뚯뒪???듦낵.
 
-> **Status: [완료됨]**
-> - **히스토리**:
->   - `react-force-graph-2d`, `react-dropzone`, `lucide-react` 패키지 설치 완료.
->   - `UI_GUIDE.md` 5번 항목의 지침에 따라 `GraphCanvas` 컴포넌트 생성. 단색(zinc-200), 직선(zinc-600), 투명 라벨, Hover 상호작용 구현 완료.
->   - `react-dropzone`을 활용한 파일 업로드 대응 `EmptyState` 컴포넌트 구현.
->   - `page.tsx`에 더미 데이터를 주입하여 그래프 렌더링 테스트 통과.
+## ?묒뾽 踰붿쐞
+1. `react-force-graph-2d` ?ㅼ튂 諛?以묒븰 罹붾쾭??而댄룷?뚰듃 ?앹꽦.
+2. ?몃뱶, 媛꾩꽑, ?쇰꺼?????`UI_GUIDE.md` 5踰???ぉ(?듭떆?붿뼵 ?ㅽ??????꾧꺽???ㅽ??쇰쭅 ?곸슜.
+3. ?곗씠?곌? ?놁쓣 ???쒖떆??吏곴??곸씤 Empty State UI 諛??낅줈???쒕∼議?Dropzone) 援ы쁽.
+4. ?붾? 洹몃옒???곗씠?곕? ?쒖슜???뚮뜑留??뚯뒪??
 
-## 작업 범위
-1. `react-force-graph-2d` 설치 및 중앙 캔버스 컴포넌트 생성.
-2. 노드, 간선, 라벨에 대한 `UI_GUIDE.md` 5번 항목(옵시디언 스타일)의 엄격한 스타일링 적용.
-3. 데이터가 없을 때 표시될 직관적인 Empty State UI 및 업로드 드롭존(Dropzone) 구현.
-4. 더미 그래프 데이터를 활용한 렌더링 테스트.
-
-## 생성 및 수정할 파일 목록
+## ?앹꽦 諛??섏젙???뚯씪 紐⑸줉
 - `frontend/src/components/graph/GraphCanvas.tsx`
 - `frontend/src/components/graph/EmptyState.tsx`
 - `frontend/src/types/graph.ts`
 
-## 성공 기준
-- 중앙 영역에 그래프 캔버스가 표시되며, 더미 노드들이 단색/직선으로 깔끔하게 그려짐.
-- 데이터가 없을 때 중앙에 업로드 CTA 문구와 드롭존 UI가 나타남.
+## ?깃났 湲곗?
+- 以묒븰 ?곸뿭??洹몃옒??罹붾쾭?ㅺ? ?쒖떆?섎ŉ, ?붾? ?몃뱶?ㅼ씠 ?⑥깋/吏곸꽑?쇰줈 源붾걫?섍쾶 洹몃젮吏?
+- ?곗씠?곌? ?놁쓣 ??以묒븰???낅줈??CTA 臾멸뎄? ?쒕∼議?UI媛 ?섑???

@@ -1,64 +1,45 @@
 package com.aimsgraph.domain.source;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aimsgraph.outbox.OutboxEventMapper;
+import com.aimsgraph.testcontainers.AbstractContainerBaseTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Testcontainers
-class RawSourceServiceTest {
+class RawSourceServiceTest extends AbstractContainerBaseTest {
 
-    @Container
-    static MSSQLServerContainer<?> mssql = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
-            .acceptLicense();
+  @Autowired private RawSourceService rawSourceService;
 
-    @DynamicPropertySource
-    static void mssqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", mssql::getJdbcUrl);
-        registry.add("spring.datasource.username", mssql::getUsername);
-        registry.add("spring.datasource.password", mssql::getPassword);
-        registry.add("spring.sql.init.mode", () -> "always");
-    }
+  @Autowired private RawSourceMapper rawSourceMapper;
 
-    @Autowired
-    private RawSourceService rawSourceService;
+  @Autowired private OutboxEventMapper outboxEventMapper;
 
-    @Autowired
-    private RawSourceMapper rawSourceMapper;
+  @Test
+  void shouldSaveRawSourceAndOutboxEventInSameTransaction() {
+    // given
+    RawSource source = new RawSource();
+    source.setWorkspaceId("test-workspace");
+    source.setSourceUri("s3://test/doc.md");
+    source.setTitle("Test Doc");
+    source.setContentHash("hash123");
+    source.setSourceType("MARKDOWN");
+    source.setStatus("RECEIVED");
 
-    @Autowired
-    private OutboxEventMapper outboxEventMapper;
+    // when
+    rawSourceService.ingestSource(source);
 
-    @Test
-    void shouldSaveRawSourceAndOutboxEventInSameTransaction() {
-        // given
-        RawSource source = new RawSource();
-        source.setWorkspaceId("test-workspace");
-        source.setSourceUri("s3://test/doc.md");
-        source.setTitle("Test Doc");
-        source.setContentHash("hash123");
-        source.setSourceType("MARKDOWN");
-        source.setStatus("RECEIVED");
+    // then
+    RawSource savedSource =
+        rawSourceMapper.findByWorkspaceIdAndUri("test-workspace", "s3://test/doc.md");
+    assertThat(savedSource).isNotNull();
 
-        // when
-        rawSourceService.ingestSource(source);
-
-        // then
-        RawSource savedSource = rawSourceMapper.findByWorkspaceIdAndUri("test-workspace", "s3://test/doc.md");
-        assertThat(savedSource).isNotNull();
-
-        var events = outboxEventMapper.findByWorkspaceId("test-workspace");
-        assertThat(events).hasSize(1);
-        assertThat(events.get(0).getAggregateType()).isEqualTo("DOCUMENT");
-        assertThat(events.get(0).getEventType()).isEqualTo("CREATED");
-        assertThat(events.get(0).getStatus()).isEqualTo("PENDING");
-    }
+    var events = outboxEventMapper.findByWorkspaceId("test-workspace");
+    assertThat(events).hasSize(1);
+    assertThat(events.get(0).getAggregateType()).isEqualTo("DOCUMENT");
+    assertThat(events.get(0).getEventType()).isEqualTo("CREATED");
+    assertThat(events.get(0).getStatus()).isEqualTo("PENDING");
+  }
 }

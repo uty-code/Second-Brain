@@ -1,67 +1,68 @@
 package com.aimsgraph.auth;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.redisson.api.RRateLimiter;
+import org.redisson.api.RedissonClient;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import org.mockito.Mockito;
-import org.redisson.api.RedissonClient;
-import org.redisson.api.RRateLimiter;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import org.springframework.web.context.request.RequestAttributes;
-
 class JwtInterceptorTest {
 
-    private final RedissonClient redissonClient = Mockito.mock(RedissonClient.class);
-    private final RRateLimiter rateLimiter = Mockito.mock(RRateLimiter.class);
-    private final JwtInterceptor interceptor;
-    
-    public JwtInterceptorTest() {
-        Mockito.when(redissonClient.getRateLimiter(Mockito.anyString())).thenReturn(rateLimiter);
-        Mockito.when(rateLimiter.tryAcquire(1)).thenReturn(true);
-        interceptor = new JwtInterceptor(redissonClient);
-    }
+  private final RedissonClient redissonClient = Mockito.mock(RedissonClient.class);
+  private final RRateLimiter rateLimiter = Mockito.mock(RRateLimiter.class);
+  private final JwtInterceptor interceptor;
 
-    @Test
-    void preHandle_AllowsWhenRateLimitAcquired() throws Exception {
-        // Arrange
-        String workspaceId = "test-vault";
+  public JwtInterceptorTest() {
+    Mockito.when(redissonClient.getRateLimiter(Mockito.anyString())).thenReturn(rateLimiter);
+    Mockito.when(rateLimiter.tryAcquire(1)).thenReturn(true);
+    interceptor = new JwtInterceptor(redissonClient);
+  }
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
-        RequestContextHolder.getRequestAttributes().setAttribute(
-                JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, workspaceId, RequestAttributes.SCOPE_REQUEST);
+  @Test
+  void preHandle_AllowsWhenRateLimitAcquired() throws Exception {
+    // Arrange
+    String workspaceId = "test-vault";
 
-        // Act
-        boolean result = interceptor.preHandle(request, response, null);
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    MockHttpServletResponse response = new MockHttpServletResponse();
 
-        // Assert
-        assertThat(result).isTrue();
-    }
+    RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    RequestContextHolder.getRequestAttributes()
+        .setAttribute(
+            JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, workspaceId, RequestAttributes.SCOPE_REQUEST);
 
-    @Test
-    void preHandle_RateLimitExceeded_Returns429() throws Exception {
-        // Arrange
-        String workspaceId = "test-vault";
-        Mockito.when(rateLimiter.tryAcquire(1)).thenReturn(false);
+    // Act
+    boolean result = interceptor.preHandle(request, response, null);
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
-        RequestContextHolder.getRequestAttributes().setAttribute(
-                JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, workspaceId, RequestAttributes.SCOPE_REQUEST);
+    // Assert
+    assertThat(result).isTrue();
+  }
 
-        // Act
-        boolean result = interceptor.preHandle(request, response, null);
+  @Test
+  void preHandle_RateLimitExceeded_Returns429() throws Exception {
+    // Arrange
+    String workspaceId = "test-vault";
+    Mockito.when(rateLimiter.tryAcquire(1)).thenReturn(false);
 
-        // Assert
-        assertThat(result).isFalse();
-        assertThat(response.getStatus()).isEqualTo(429);
-    }
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    RequestContextHolder.getRequestAttributes()
+        .setAttribute(
+            JwtInterceptor.WORKSPACE_ID_ATTRIBUTE, workspaceId, RequestAttributes.SCOPE_REQUEST);
+
+    // Act
+    boolean result = interceptor.preHandle(request, response, null);
+
+    // Assert
+    assertThat(result).isFalse();
+    assertThat(response.getStatus()).isEqualTo(429);
+  }
 }

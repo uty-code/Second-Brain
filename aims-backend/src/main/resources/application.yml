@@ -29,6 +29,11 @@ jwt:
   secret: ${JWT_SECRET:your-super-secret-key-for-aims-graph-backend-dev-only}
   expiration: 86400000 # 24 hours
 
+security:
+  encryption:
+    key: ${ENCRYPTION_KEY:aimsgraph-secret-key-1234567890}
+
+
 logging:
   level:
     com.aimsgraph: DEBUG

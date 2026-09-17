@@ -1,27 +1,33 @@
-# Phase 10: 인터랙션 구현 및 백엔드(SSE/MCP) 연동
+﻿---
+title: "Phase 10: ?명꽣?숈뀡 援ы쁽 諛?諛깆뿏??SSE/MCP) ?곕룞"
+phase_number: 10
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
 
-> **Status: [완료됨]**
-- **히스토리**:
-  - `GraphCanvas.tsx` 내 노드 Hover, Click 이벤트 (카메라 줌/패닝 및 인접 노드 포커싱) 구현.
-  - `useAppStore`를 통해 노드 클릭 시 전역 상태에 `selectedNodeId` 업데이트 로직 추가 (`page.tsx`).
-  - `RightPanel.tsx`에 `Skeleton` 컴포넌트를 이용한 비동기 지연 시간 대응 로직 구현.
-  - `react-markdown` 패키지 추가 및 `MarkdownViewer.tsx` 작성하여 우측 패널에 연동.
-  - `api.ts` 파일 생성하여 `EventSource` 기반 SSE/MCP 통신 클라이언트 초안 구현.
+> **Status: [?꾨즺??**
+- **?덉뒪?좊━**:
+  - `GraphCanvas.tsx` ???몃뱶 Hover, Click ?대깽??(移대찓??以??⑤떇 諛??몄젒 ?몃뱶 ?ъ빱?? 援ы쁽.
+  - `useAppStore`瑜??듯빐 ?몃뱶 ?대┃ ???꾩뿭 ?곹깭??`selectedNodeId` ?낅뜲?댄듃 濡쒖쭅 異붽? (`page.tsx`).
+  - `RightPanel.tsx`??`Skeleton` 而댄룷?뚰듃瑜??댁슜??鍮꾨룞湲?吏???쒓컙 ???濡쒖쭅 援ы쁽.
+  - `react-markdown` ?⑦궎吏 異붽? 諛?`MarkdownViewer.tsx` ?묒꽦?섏뿬 ?곗륫 ?⑤꼸???곕룞.
+  - `api.ts` ?뚯씪 ?앹꽦?섏뿬 `EventSource` 湲곕컲 SSE/MCP ?듭떊 ?대씪?댁뼵??珥덉븞 援ы쁽.
 
 
-## 작업 범위
-1. 노드 Hover/Click 인터랙션 구현 (Hover 시 인접 노드 포커싱, Click 시 우측 패널 연동 및 카메라 이동).
-2. 우측 패널에 Markdown 문서 뷰어 컴포넌트 추가 (`react-markdown` 등).
-3. 스켈레톤(Skeleton) 로딩 UI 구현.
-4. 프론트엔드를 MCP 클라이언트로 동작하게 하여 백엔드 SSE 엔드포인트와 통신 연동 (초안).
+## ?묒뾽 踰붿쐞
+1. ?몃뱶 Hover/Click ?명꽣?숈뀡 援ы쁽 (Hover ???몄젒 ?몃뱶 ?ъ빱?? Click ???곗륫 ?⑤꼸 ?곕룞 諛?移대찓???대룞).
+2. ?곗륫 ?⑤꼸??Markdown 臾몄꽌 酉곗뼱 而댄룷?뚰듃 異붽? (`react-markdown` ??.
+3. ?ㅼ펷?덊넠(Skeleton) 濡쒕뵫 UI 援ы쁽.
+4. ?꾨줎?몄뿏?쒕? MCP ?대씪?댁뼵?몃줈 ?숈옉?섍쾶 ?섏뿬 諛깆뿏??SSE ?붾뱶?ъ씤?몄? ?듭떊 ?곕룞 (珥덉븞).
 
-## 생성 및 수정할 파일 목록
-- `frontend/src/components/graph/GraphCanvas.tsx` (인터랙션 이벤트 추가)
+## ?앹꽦 諛??섏젙???뚯씪 紐⑸줉
+- `frontend/src/components/graph/GraphCanvas.tsx` (?명꽣?숈뀡 ?대깽??異붽?)
 - `frontend/src/components/viewer/MarkdownViewer.tsx`
 - `frontend/src/components/ui/Skeleton.tsx`
-- `frontend/src/services/api.ts` (SSE 연동 로직)
+- `frontend/src/services/api.ts` (SSE ?곕룞 濡쒖쭅)
 
-## 성공 기준
-- 특정 노드 클릭 시 우측 패널에 해당 노드의 문서가 마크다운으로 렌더링됨.
-- 노드 호버 시 관련된 간선과 노드만 하이라이트 처리됨.
-- 긴 대기 시간 발생 시 스피너 대신 스켈레톤 로딩이 표시됨.
+## ?깃났 湲곗?
+- ?뱀젙 ?몃뱶 ?대┃ ???곗륫 ?⑤꼸???대떦 ?몃뱶??臾몄꽌媛 留덊겕?ㅼ슫?쇰줈 ?뚮뜑留곷맖.
+- ?몃뱶 ?몃쾭 ??愿?⑤맂 媛꾩꽑怨??몃뱶留??섏씠?쇱씠??泥섎━??
+- 湲??湲??쒓컙 諛쒖깮 ???ㅽ뵾??????ㅼ펷?덊넠 濡쒕뵫???쒖떆??

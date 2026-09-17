@@ -1,17 +1,23 @@
-# Phase 11: LLM 쿼리 컨텍스트 자가 위키 주입 (RAG 지양, Local Wiki Markdown 기반 Context Retrieval 시스템 구축)
+﻿---
+title: "Phase 11: LLM 荑쇰━ 而⑦뀓?ㅽ듃 ?먭? ?꾪궎 二쇱엯 (RAG 吏?? Local Wiki Markdown 湲곕컲 Context Retrieval ?쒖뒪??援ъ텞)"
+phase_number: 11
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
 
-> **Status: [완료됨]**
+> **Status: [?꾨즺??**
 >
-> - **히스토리**:
->   - RAG와 Vector DB를 지양하는 Andrej Karpathy's LLM Wiki Pattern의 사상을 준수하기 위해 로컬 지식 위키 디렉토리를 탐색하고 gpt-4o-mini를 이용하여 질문에 연관된 3~5개의 위키 마크다운 문서를 1차적으로 선정, 이를 최종 LLM 프롬프트의 컨텍스트로 결합하여 답변하도록 LlmService.java의 query 메서드를 업데이트함.
->   - LlmServiceTest.java에 단위 테스트를 성공적으로 추가하여 기능을 검증함.
+> - **?덉뒪?좊━**:
+>   - RAG? Vector DB瑜?吏?묓븯??Andrej Karpathy's LLM Wiki Pattern???ъ긽??以?섑븯湲??꾪빐 濡쒖뺄 吏???꾪궎 ?붾젆?좊━瑜??먯깋?섍퀬 gpt-4o-mini瑜??댁슜?섏뿬 吏덈Ц???곌???3~5媛쒖쓽 ?꾪궎 留덊겕?ㅼ슫 臾몄꽌瑜?1李⑥쟻?쇰줈 ?좎젙, ?대? 理쒖쥌 LLM ?꾨＼?꾪듃??而⑦뀓?ㅽ듃濡?寃고빀?섏뿬 ?듬??섎룄濡?LlmService.java??query 硫붿꽌?쒕? ?낅뜲?댄듃??
+>   - LlmServiceTest.java???⑥쐞 ?뚯뒪?몃? ?깃났?곸쑝濡?異붽??섏뿬 湲곕뒫??寃利앺븿.
 
-## 구현 내용
+## 援ы쁽 ?댁슜
 - `LlmService.java`:
-  - `collectMarkdownFiles` 헬퍼 메서드를 통해 `concepts`, `entities`, `insights` 경로의 모든 `.md` 파일을 수집.
-  - 1차 LLM 호출(`gpt-4o-mini`)을 통해 사용자의 질문과 가장 잘 매핑되는 파일 3~5개를 선정.
-  - 선택된 마크다운 문서 내용을 읽어와 `enrichedQuery`에 주입.
-  - 예외 발생 시나 디렉토리가 없을 시 오리지널 직접 쿼리(`queryDirect`)로 안전하게 fallback 하도록 가드레일 설계.
+  - `collectMarkdownFiles` ?ы띁 硫붿꽌?쒕? ?듯빐 `concepts`, `entities`, `insights` 寃쎈줈??紐⑤뱺 `.md` ?뚯씪???섏쭛.
+  - 1李?LLM ?몄텧(`gpt-4o-mini`)???듯빐 ?ъ슜?먯쓽 吏덈Ц怨?媛????留ㅽ븨?섎뒗 ?뚯씪 3~5媛쒕? ?좎젙.
+  - ?좏깮??留덊겕?ㅼ슫 臾몄꽌 ?댁슜???쎌뼱? `enrichedQuery`??二쇱엯.
+  - ?덉쇅 諛쒖깮 ?쒕굹 ?붾젆?좊━媛 ?놁쓣 ???ㅻ━吏??吏곸젒 荑쇰━(`queryDirect`)濡??덉쟾?섍쾶 fallback ?섎룄濡?媛?쒕젅???ㅺ퀎.
 - `LlmServiceTest.java`:
-  - 임시 디렉토리를 활용한 `query_shouldRetrieveWikiFilesAndEnrichQuery` 단위 테스트 추가.
-  - `queryDirect`를 Spy를 사용하여 Mocking 및 캡쳐함으로써 온전히 검증 성공.
+  - ?꾩떆 ?붾젆?좊━瑜??쒖슜??`query_shouldRetrieveWikiFilesAndEnrichQuery` ?⑥쐞 ?뚯뒪??異붽?.
+  - `queryDirect`瑜?Spy瑜??ъ슜?섏뿬 Mocking 諛?罹≪퀜?⑥쑝濡쒖뜥 ?⑥쟾??寃利??깃났.

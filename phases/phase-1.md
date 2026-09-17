@@ -1,15 +1,21 @@
-# Phase 1: 기반 인프라 및 보안 설정
-> **Status: [완료됨]**
-> - **히스토리**: Spring Boot 기반 구축, Multi-tenancy JWT 설정 및 BYOK(Bring Your Own Key) 기반 API Key 검증 및 암호화 연동 완료.
+﻿---
+title: "Phase 1: 湲곕컲 ?명봽??諛?蹂댁븞 ?ㅼ젙"
+phase_number: 1
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━**: Spring Boot 湲곕컲 援ъ텞, Multi-tenancy JWT ?ㅼ젙 諛?BYOK(Bring Your Own Key) 湲곕컲 API Key 寃利?諛??뷀샇???곕룞 ?꾨즺.
 
-## 1. 개요 및 목표
-- AIMS-Graph Backend의 기본 프로젝트 뼈대 및 보안(인증/인가) 설정을 구축합니다.
-- JWT 파싱 로직, BYOK(Bring Your Own Key) 암호화 로직, 데이터베이스 연동 뼈대를 구성합니다.
+## 1. 媛쒖슂 諛?紐⑺몴
+- AIMS-Graph Backend??湲곕낯 ?꾨줈?앺듃 堉덈? 諛?蹂댁븞(?몄쬆/?멸?) ?ㅼ젙??援ъ텞?⑸땲??
+- JWT ?뚯떛 濡쒖쭅, BYOK(Bring Your Own Key) ?뷀샇??濡쒖쭅, ?곗씠?곕쿋?댁뒪 ?곕룞 堉덈?瑜?援ъ꽦?⑸땲??
 
-## 2. 주요 구현 내용
-- **인증 인프라**: `jjwt`를 이용한 토큰 서명 검증 및 요청 속성(workspaceId) 추출 (`JwtInterceptor`).
-- **BYOK 관리**: AES-256을 활용한 API Key 암호화 및 OpenAI Ping Test 실제 검증 로직 구현 (`WorkspaceService`).
-- **테스트**: TDD 규칙에 따라 `JwtInterceptorTest`, `WorkspaceServiceTest` 작성 및 통과.
+## 2. 二쇱슂 援ы쁽 ?댁슜
+- **?몄쬆 ?명봽??*: `jjwt`瑜??댁슜???좏겙 ?쒕챸 寃利?諛??붿껌 ?띿꽦(workspaceId) 異붿텧 (`JwtInterceptor`).
+- **BYOK 愿由?*: AES-256???쒖슜??API Key ?뷀샇??諛?OpenAI Ping Test ?ㅼ젣 寃利?濡쒖쭅 援ы쁽 (`WorkspaceService`).
+- **?뚯뒪??*: TDD 洹쒖튃???곕씪 `JwtInterceptorTest`, `WorkspaceServiceTest` ?묒꽦 諛??듦낵.
 
-## 3. 상태
-- **완료됨** (이전 단계에서 리팩토링 및 단위 테스트 검증 모두 통과됨)
+## 3. ?곹깭
+- **?꾨즺??* (?댁쟾 ?④퀎?먯꽌 由ы뙥?좊쭅 諛??⑥쐞 ?뚯뒪??寃利?紐⑤몢 ?듦낵??

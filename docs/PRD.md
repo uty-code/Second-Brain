@@ -1,3 +1,10 @@
+---
+title: "Product Requirements Document (PRD)"
+type: reference
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+
 # Product Requirements Document (PRD): AIMS-Graph
 
 ## 1. 프로젝트 개요
@@ -26,10 +33,11 @@
   - 필요할 때만 복호화하여 API 호출에 사용하므로 사용자의 개인 키 유출 리스크를 근본적으로 차단합니다.
 
 ## 4. 로드맵 및 개발 페이즈 (Phased Roadmap)
-- **Phase 1 (기반 구축 - MVP)**: 단일 사용자 기준의 마크다운 수집 및 Neo4j 기본 그래프 적재 기능 구현.
-- **Phase 2 (LLM 위키 설계 및 RAG 폐기)**: 사후 벡터 검색(RAG) 기술을 전면 폐기하고, 마크다운 위키 델타 컴파일 및 Neo4j 엣지 튜닝 체계 도입.
-- **Phase 3 (분산 일관성 및 MCP)**: Kafka 아웃박스 패턴 적용, Redis 분산 락, 공식 Spring AI MCP 서버 마이그레이션.
-- **Phase 4 (B2B 고도화 및 보안 - 현 단계)**: JWT 기반 로그인/로그아웃 블랙리스팅, 계정 영구 탈퇴에 따른 논리적/물리적 리소스 완전 소거 정책 구현, 워크스페이스 멀티테넌트 격리 강화, 실시간 SSE 기반 AI Gaze Tracking 하이라이팅 구현 완료.
+세부 상태는 루트의 [tasks.md](file:///c:/second%20brain/tasks.md)를 참고하십시오.
+- **Phase 1 (기반 구축 - MVP)**: 단일 사용자 기준의 마크다운 수집 및 Neo4j 기본 그래프 적재 기능 구현. [phase-1.md](file:///c:/second%20brain/phases/phase-1.md)
+- **Phase 2 (LLM 위키 설계 및 RAG 폐기)**: 사후 벡터 검색(RAG) 기술을 전면 폐기하고, 마크다운 위키 델타 컴파일 및 Neo4j 엣지 튜닝 체계 도입. [phase-2.md](file:///c:/second%20brain/phases/phase-2.md)
+- **Phase 3 (분산 일관성 및 MCP)**: Kafka 아웃박스 패턴 적용, Redis 분산 락, 공식 Spring AI MCP 서버 마이그레이션. [phase-3.md](file:///c:/second%20brain/phases/phase-3.md)
+- **Phase 4 (B2B 고도화 및 보안)**: JWT 기반 로그인/로그아웃 블랙리스팅, 계정 영구 탈퇴에 따른 논리적/물리적 리소스 완전 소거 정책 구현, 워크스페이스 멀티테넌트 격리 강화, 실시간 SSE 기반 AI Gaze Tracking 하이라이팅 구현 완료. [phase-4.md](file:///c:/second%20brain/phases/phase-4.md)
 
 ## 5. 제품 스코프 내 완료 기능 및 제외 사항
 - **포함 사항 (완료된 코어 기능)**:

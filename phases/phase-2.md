@@ -1,28 +1,34 @@
-# Phase 2 지시서: 데이터 정합성 파이프라인 (Transactional Outbox)
-> **Status: [완료됨]**
-> - **히스토리**: Entity/Neo4j 스키마 설계, Transactional Outbox 패턴을 적용한 MSSQL -> Kafka 이벤트 스트리밍 및 발행 보장 파이프라인 구축 완료.
+﻿---
+title: "Phase 2: "
+phase_number: 2
+status: "completed"
+created_at: 2026-06-02
+updated_at: 2026-07-18
+---
+> **Status: [?꾨즺??**
+> - **?덉뒪?좊━**: Entity/Neo4j ?ㅽ궎留??ㅺ퀎, Transactional Outbox ?⑦꽩???곸슜??MSSQL -> Kafka ?대깽???ㅽ듃由щ컢 諛?諛쒗뻾 蹂댁옣 ?뚯씠?꾨씪??援ъ텞 ?꾨즺.
 
-## 1. 개요 및 목표
-- 원본 메타데이터(MSSQL)와 그래프 구조(Neo4j) 동기화를 위한 **Transactional Outbox 패턴**을 구축합니다.
-- Entity 정의 및 Kafka 연동 Producer 뼈대를 만듭니다.
+## 1. 媛쒖슂 諛?紐⑺몴
+- ?먮낯 硫뷀??곗씠??MSSQL)? 洹몃옒??援ъ“(Neo4j) ?숆린?붾? ?꾪븳 **Transactional Outbox ?⑦꽩**??援ъ텞?⑸땲??
+- Entity ?뺤쓽 諛?Kafka ?곕룞 Producer 堉덈?瑜?留뚮벊?덈떎.
 
-## 2. 참조 문서 (반드시 읽을 것)
-- `GEMINI.md` 및 `rules/common/project-rules.md` (TDD Guard, 파괴적 명령 금지 등)
-- `docs/SCHEMA.md` (MSSQL `RawSource`, `WikiPage`, `OutboxEvent` 스키마 명세 확인)
-- `docs/ARCHITECTURE.md` (Outbox -> Kafka 흐름 확인)
+## 2. 李몄“ 臾몄꽌 (諛섎뱶???쎌쓣 寃?
+- `GEMINI.md` 諛?`rules/common/project-rules.md` (TDD Guard, ?뚭눼??紐낅졊 湲덉? ??
+- `docs/SCHEMA.md` (MSSQL `RawSource`, `WikiPage`, `OutboxEvent` ?ㅽ궎留?紐낆꽭 ?뺤씤)
+- `docs/ARCHITECTURE.md` (Outbox -> Kafka ?먮쫫 ?뺤씤)
 
-## 3. 구현 내용 목록 (Task Breakdown)
-1. **엔티티 및 테이블 정의**
-   - `docs/SCHEMA.md`를 바탕으로 `RawSource`, `WikiPage`, `OutboxEvent` 엔티티 클래스 생성.
-   - H2 대신 MSSQL Testcontainers를 이용해 Flyway/schema.sql 등으로 테이블 생성 쿼리(또는 Mybatis 매퍼 설정) 작성.
-2. **MyBatis Mapper 및 저장 로직**
-   - 비즈니스 로직(예: 새 문서 수집 시)에서 `RawSource` 데이터를 저장함과 동시에, **동일 트랜잭션 내에서** `OutboxEvent` 테이블에도 이벤트를 기록하는 로직을 TDD로 작성.
-3. **Kafka 연동 (Outbox Poller)**
-   - 스케줄러(`@Scheduled` 등)를 통해 `OutboxEvent` 테이블의 `PENDING` 상태 레코드를 주기적으로 조회.
-   - 조회된 이벤트를 Kafka 토픽(`aims.outbox.events`)에 발행.
-   - 발행 완료 후 `PROCESSED` 상태로 변경하는 기능 개발 (TDD 준수).
+## 3. 援ы쁽 ?댁슜 紐⑸줉 (Task Breakdown)
+1. **?뷀떚??諛??뚯씠釉??뺤쓽**
+   - `docs/SCHEMA.md`瑜?諛뷀깢?쇰줈 `RawSource`, `WikiPage`, `OutboxEvent` ?뷀떚???대옒???앹꽦.
+   - H2 ???MSSQL Testcontainers瑜??댁슜??Flyway/schema.sql ?깆쑝濡??뚯씠釉??앹꽦 荑쇰━(?먮뒗 Mybatis 留ㅽ띁 ?ㅼ젙) ?묒꽦.
+2. **MyBatis Mapper 諛????濡쒖쭅**
+   - 鍮꾩쫰?덉뒪 濡쒖쭅(?? ??臾몄꽌 ?섏쭛 ???먯꽌 `RawSource` ?곗씠?곕? ??ν븿怨??숈떆?? **?숈씪 ?몃옖??뀡 ?댁뿉??* `OutboxEvent` ?뚯씠釉붿뿉???대깽?몃? 湲곕줉?섎뒗 濡쒖쭅??TDD濡??묒꽦.
+3. **Kafka ?곕룞 (Outbox Poller)**
+   - ?ㅼ?以꾨윭(`@Scheduled` ??瑜??듯빐 `OutboxEvent` ?뚯씠釉붿쓽 `PENDING` ?곹깭 ?덉퐫?쒕? 二쇨린?곸쑝濡?議고쉶.
+   - 議고쉶???대깽?몃? Kafka ?좏뵿(`aims.outbox.events`)??諛쒗뻾.
+   - 諛쒗뻾 ?꾨즺 ??`PROCESSED` ?곹깭濡?蹂寃쏀븯??湲곕뒫 媛쒕컻 (TDD 以??.
 
-## 4. 제약 사항
-- 반드시 테스트 코드(`src/test/...`)를 먼저 작성하여(Red) 의도된 실패를 확인한 후 구현(Green)할 것.
-- 인메모리 DB(H2 등) 사용 불가. Testcontainers(mssql, kafka 등)를 사용하여 테스트 환경을 격리 구성할 것.
-- 작업 완료 후 `c:\second brain\tasks.md` 파일에서 Phase 2를 `[x]`로 갱신하고, 사용자(메인 에이전트)에게 보고할 것.
+## 4. ?쒖빟 ?ы빆
+- 諛섎뱶???뚯뒪??肄붾뱶(`src/test/...`)瑜?癒쇱? ?묒꽦?섏뿬(Red) ?섎룄???ㅽ뙣瑜??뺤씤????援ы쁽(Green)??寃?
+- ?몃찓紐⑤━ DB(H2 ?? ?ъ슜 遺덇?. Testcontainers(mssql, kafka ??瑜??ъ슜?섏뿬 ?뚯뒪???섍꼍??寃⑸━ 援ъ꽦??寃?
+- ?묒뾽 ?꾨즺 ??`c:\second brain\tasks.md` ?뚯씪?먯꽌 Phase 2瑜?`[x]`濡?媛깆떊?섍퀬, ?ъ슜??硫붿씤 ?먯씠?꾪듃)?먭쾶 蹂닿퀬??寃?
