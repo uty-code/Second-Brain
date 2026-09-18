@@ -1,0 +1,10 @@
+{
+  "id": "17_mixed_react_postgres_k8s",
+  "category": "mixed_technologies",
+  "expectedConcepts": ["react", "postgresql", "kubernetes"],
+  "forbiddenConcepts": ["vue", "angular", "mysql", "docker-swarm"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["React 서버 컴포넌트", "PostgreSQL의 ACID 및 JSONB", "Kubernetes 컨테이너 오케스트레이션 및 HPA"]
+}

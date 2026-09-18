@@ -1,0 +1,32 @@
+{
+  "scenarioId": "case_d_perspective",
+  "category": "divergent_perspectives",
+  "title": "분산 트랜잭션 처리 전략",
+  "requiredFacts": [
+    "2PC",
+    "Saga"
+  ],
+  "requiredPerspectives": [
+    {
+      "name": "strong_consistency",
+      "description": "금융 트랜잭션 등에서의 강력한 데이터 정합성 보장 관점",
+      "keywords": [
+        "강한 일관성",
+        "ACID",
+        "원자성",
+        "2PC"
+      ]
+    },
+    {
+      "name": "high_availability",
+      "description": "대규모 분산 환경에서의 장애 격리, 가용성 및 성능 트레이드오프 관점 (우월성 판정이 아닌 해당 설계 관점의 보존 여부 검증)",
+      "keywords": [
+        "가용성",
+        "장애 격리",
+        "최종 일관성",
+        "Saga"
+      ]
+    }
+  ],
+  "note": "2PC vs Saga는 참/거짓 모순이 아니며 상호 배타적 우열 관계가 아님. 양쪽 설계 관점과 도메인별 트레이드오프가 자의적 누락 없이 모두 보존되어야 함"
+}

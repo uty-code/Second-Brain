@@ -1,0 +1,8 @@
+{
+  "description": "Case 02: 완전 무관한 도메인 (Edge 생성 금지 / False Positive 차단)",
+  "expectedEdges": [],
+  "forbiddenEdges": [
+    ["kubernetes-pod-scheduling", "payment-pg-fee-policy"],
+    ["payment-pg-fee-policy", "kubernetes-pod-scheduling"]
+  ]
+}

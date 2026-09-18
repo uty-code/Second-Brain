@@ -23,6 +23,10 @@ public class LlmService {
   @org.springframework.beans.factory.annotation.Value("${llm.api-key:demo}")
   private String defaultApiKey;
 
+  @org.springframework.beans.factory.annotation.Value(
+      "${llm.api-url:https://api.openai.com/v1/chat/completions}")
+  private String openAiApiUrl;
+
   @org.springframework.beans.factory.annotation.Value("${wiki.base.dir:workspaces}")
   private String wikiBaseDir;
 
@@ -30,6 +34,7 @@ public class LlmService {
   private final WorkspaceCredentialsService credentialsService;
   private final Neo4jClient neo4jClient;
   private final NotionIngestService notionIngestService;
+  private final com.aimsgraph.ingest.validator.WikiPageValidator wikiPageValidator;
   private final Map<String, ChatModel> modelCache = new ConcurrentHashMap<>();
   private final Map<String, java.util.concurrent.locks.ReentrantLock> fileLocks =
       new ConcurrentHashMap<>();
@@ -173,6 +178,9 @@ public class LlmService {
     // Neo4j에 그래프(노드와 링크) 저장
     saveGraphToNeo4j(graphData, workspaceId);
 
+    // 위키 본문 크로스 레퍼런스([[slug]]) 링크도 Neo4j 그래프에 실시간 동기화
+    syncWikiLinksToNeo4j(workspaceId);
+
     return graphData;
   }
 
@@ -300,30 +308,38 @@ public class LlmService {
               + "- ALL content (title, summary, body) MUST be written in Korean.\n"
               + "- Cross-references to other concepts MUST use `[[english-slug-id]]` syntax (e.g. `[[event-driven-architecture]]`). NEVER use Korean text inside `[[...]]`.\n"
               + "- The `id` field MUST be an english slug with hyphens (e.g. `event-driven-architecture`).\n\n"
-              + "## Quality Standards — The wiki page `content` field MUST include ALL 5 sections:\n"
-              + "1. **## 정의** — 개념이 무엇인지 명확하고 풍부하게 서술 (최소 3문장)\n"
-              + "2. **## 핵심 구성 요소** — 마크다운 표(Table) 또는 구조화된 목록으로 설명\n"
-              + "3. **## 동작 원리** — 단계별 프로세스를 번호 목록으로 상세 서술\n"
-              + "4. **## 장점과 트레이드오프** — 장점과 한계를 균형 있게 대조 (표 사용 권장)\n"
-              + "5. **## 실전 적용 사례** — 코드 스니펫, 설정 예시, 또는 구체적 시나리오\n\n"
-              + "## CRITICAL: Knowledge Sourcing Rules\n"
-              + "- You MUST write rich, detailed content for every section. NEVER output placeholder text like `...` or `(내용 없음)`.\n"
-              + "- If the source text provides limited information about a concept, you MAY and SHOULD supplement with widely-known general software engineering knowledge (e.g. how TDD works, what a circuit breaker pattern is).\n"
-              + "- However, you MUST NEVER fabricate project-specific scenarios, fake code examples, or imaginary case studies that are not in the source text. Clearly distinguish between 'information from the source' and 'general knowledge'.\n\n"
+              + "## Document Structure & Quality Guidelines\n"
+              + "- The section headings (## headers) and internal structure MUST be tailored dynamically to the nature of the concept (software, mathematics, science, history, humanities, product, biography, etc.).\n"
+              + "- Structure the content logically with at least 2 relevant ## headings suited to the topic. Do NOT force a rigid uniform template on all concepts.\n"
+              + "- Every section must contain meaningful, well-explained paragraphs or structured lists/tables.\n\n"
+              + "## KNOWLEDGE BOUNDARY & HALLUCINATION PREVENTION\n"
+              + "- Separate information clearly:\n"
+              + "  A. Information directly supported by the source text.\n"
+              + "  B. General domain knowledge used to explain or clarify the concept.\n"
+              + "- When the source text is concise, you MAY and SHOULD supplement with widely-known general knowledge (e.g. standard patterns, foundational theories, historical context).\n"
+              + "- When using general knowledge, keep it technically accurate and DO NOT imply that it was stated in the user's source text.\n"
+              + "- You MUST NEVER fabricate project-specific details as facts unless explicitly in the source text:\n"
+              + "  * NEVER invent fictional project architecture or system designs.\n"
+              + "  * NEVER fabricate implementation details, performance metrics, benchmarks, or test results.\n"
+              + "  * NEVER generate fake code claiming to represent the user's project codebase.\n"
+              + "  * Do NOT introduce unrelated technologies. When mentioning additional concepts as general knowledge, they must be directly relevant to explaining the concept.\n\n"
+              + "## CROSS-REFERENCE RULES\n"
+              + "- ONLY reference concept IDs explicitly provided in the AVAILABLE CONCEPT IDS list.\n"
+              + "- ACTIVELY link to other concepts from the AVAILABLE CONCEPT IDS list in the body text using `[[english-slug]]` syntax whenever relevant. Strive to link to at least 1-2 related concepts.\n"
+              + "- NEVER invent a new wiki ID in a cross-reference.\n"
+              + "- Do NOT create self-references to the current concept (never link to the page itself).\n\n"
               + "## Format & Quality\n"
-              + "- Use markdown elements such as tables, bullet points, code blocks, and blockquotes to structure the document precisely and beautifully.\n"
+              + "- Use markdown elements such as tables, bullet points, code blocks, math expressions, and blockquotes where appropriate to structure the document clearly.\n"
               + "- summary 필드는 30~80자 사이의 한 문장으로 압축.\n\n"
-              + "## Few-shot Example (Follow this structure exactly):\n"
+              + "## Examples of Flexible Structures Across Domains:\n"
               + "```json\n"
               + "{\"id\":\"event-driven-architecture\",\"title\":\"이벤트 드리븐 아키텍처\",\"type\":\"concept\","
               + "\"summary\":\"시스템 컴포넌트 간 비동기 이벤트를 통해 느슨한 결합을 달성하는 소프트웨어 아키텍처 패턴\","
-              + "\"tags\":[\"아키텍처\",\"비동기\",\"이벤트\"],\"aliases\":[\"EDA\",\"이벤트 기반 설계\"],"
-              + "\"content\":\"## 정의\\n\\n**이벤트 드리븐 아키텍처(Event-Driven Architecture, EDA)**는 ...\\n\\n"
-              + "## 핵심 구성 요소\\n\\n| 구성 요소 | 역할 | 예시 |\\n|---|---|---|\\n| Event Producer | ... |\\n\\n"
-              + "## 동작 원리\\n\\n1. Producer가 이벤트를 발행한다.\\n2. ...\\n\\n"
-              + "## 장점과 트레이드오프\\n\\n### 장점\\n- ...\\n\\n### 트레이드오프\\n- ...\\n\\n"
-              + "## 실전 적용 사례\\n\\n```yaml\\n# Kafka 토픽 설정 예시\\n...\\n```\\n\","
-              + "\"relatedConcepts\":[\"message-broker\",\"cqrs\"]}\n"
+              + "\"tags\":[\"아키텍처\",\"비동기\"],\"aliases\":[\"EDA\"],"
+              + "\"content\":\"## 개요\\n\\n**이벤트 드리븐 아키텍처(EDA)**는 상태 변화를 비동기 이벤트로 발행하고 감지하여 처리하는 분산 소프트웨어 설계 패턴입니다.\\n\\n"
+              + "## 핵심 컴포넌트\\n\\n| 컴포넌트 | 역할 |\\n|---|---|\\n| Event Producer | 상태 변경 이벤트를 생성하여 메시지 브로커에 전송 |\\n| Event Consumer | 토픽을 구독하여 독립 비즈니스 로직 수행 |\\n\\n"
+              + "## 아키텍처 트레이드오프\\n\\n시스템 간 결합도를 낮추고 수평 확장이 용이하지만, 최종 일관성 보장과 분산 트레이싱을 위한 추가 설계가 필요합니다.\","
+              + "\"relatedConcepts\":[\"message-broker\"]}\n"
               + "```\n";
 
       Map<String, Object> responseFormat =
@@ -368,6 +384,9 @@ public class LlmService {
       java.util.concurrent.Semaphore rateLimiter = new java.util.concurrent.Semaphore(10);
       java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
 
+      java.util.List<String> allConceptIds =
+          nodes.stream().map(n -> (String) n.get("id")).filter(java.util.Objects::nonNull).toList();
+
       try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
         java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
 
@@ -378,6 +397,19 @@ public class LlmService {
                     try {
                       rateLimiter.acquire();
                       try {
+                        String currentNodeId = (String) node.get("id");
+                        java.util.List<String> otherConceptIds =
+                            allConceptIds.stream()
+                                .filter(
+                                    id ->
+                                        currentNodeId == null
+                                            || !currentNodeId.equalsIgnoreCase(id))
+                                .toList();
+                        String availableIdsStr =
+                            otherConceptIds.isEmpty()
+                                ? "(None)"
+                                : String.join("\n- ", otherConceptIds);
+
                         String nodeJson = mapper.writeValueAsString(node);
                         String snippet = (String) node.get("snippet");
                         String userPrompt =
@@ -390,17 +422,23 @@ public class LlmService {
                                 + ">>> "
                                 + snippet
                                 + " <<<\n\n"
+                                + "AVAILABLE CONCEPT IDS FOR CROSS-REFERENCES (Excludes self-reference):\n- "
+                                + availableIdsStr
+                                + "\n\n"
                                 + "Based on the ENTIRE source text for deep context, but FOCUSING HEAVILY on the exact quote above, generate a detailed, high-quality wiki page for THIS SPECIFIC concept:\n"
                                 + nodeJson
                                 + "\n\n"
-                                + "Maximize depth, accuracy, and capture the author's original intent from the surrounding context. DO NOT hallucinate outside knowledge.";
+                                + "Maximize depth, accuracy, and capture the author's original intent. Adhere strictly to the KNOWLEDGE BOUNDARY and CROSS-REFERENCE RULES (NEVER link to this concept itself).";
 
                         java.util.List<Map<String, Object>> messages = new java.util.ArrayList<>();
                         messages.add(Map.of("role", "system", "content", systemPrompt));
                         messages.add(Map.of("role", "user", "content", userPrompt));
 
                         String requestModelName = "gpt-4o-mini";
-                        String apiUrl = "https://api.openai.com/v1/chat/completions";
+                        String apiUrl =
+                            (openAiApiUrl != null && !openAiApiUrl.isBlank())
+                                ? openAiApiUrl
+                                : "https://api.openai.com/v1/chat/completions";
                         String apiKey = getApiKey(workspaceId);
 
                         if ("deepseek-v4".equalsIgnoreCase(modelName)) {
@@ -420,63 +458,130 @@ public class LlmService {
                           }
                         }
 
-                        java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
-                        requestBody.put("model", requestModelName);
-                        requestBody.put("messages", messages);
-                        requestBody.put("response_format", responseFormat);
-                        if ("deepseek-v4".equalsIgnoreCase(modelName)) {
-                          requestBody.put("max_tokens", 4000);
-                        }
+                        // === LLM OUTPUT VALIDATION & RETRY WITH FEEDBACK (최대 3회: 최초 1회 + Retry 2회)
+                        // ===
+                        StructuredWikiPage validPage = null;
+                        int maxAttempts = 3;
+                        java.util.Set<String> availableIdSet =
+                            new java.util.HashSet<>(allConceptIds);
 
-                        String jsonBody = mapper.writeValueAsString(requestBody);
-                        java.net.http.HttpRequest request =
-                            java.net.http.HttpRequest.newBuilder()
-                                .uri(java.net.URI.create(apiUrl))
-                                .timeout(java.time.Duration.ofSeconds(45))
-                                .header("Content-Type", "application/json")
-                                .header("Authorization", "Bearer " + apiKey)
-                                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
-                                .build();
+                        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                          java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
+                          requestBody.put("model", requestModelName);
+                          requestBody.put("messages", new java.util.ArrayList<>(messages));
+                          requestBody.put("response_format", responseFormat);
+                          if ("deepseek-v4".equalsIgnoreCase(modelName)) {
+                            requestBody.put("max_tokens", 4000);
+                          }
 
-                        java.net.http.HttpResponse<String> resp =
-                            client.send(
-                                request, java.net.http.HttpResponse.BodyHandlers.ofString());
-                        Map<String, Object> respMap =
-                            mapper.readValue(
-                                resp.body(),
-                                new com.fasterxml.jackson.core.type.TypeReference<
-                                    Map<String, Object>>() {});
+                          String jsonBody = mapper.writeValueAsString(requestBody);
+                          java.net.http.HttpRequest request =
+                              java.net.http.HttpRequest.newBuilder()
+                                  .uri(java.net.URI.create(apiUrl))
+                                  .timeout(java.time.Duration.ofSeconds(45))
+                                  .header("Content-Type", "application/json")
+                                  .header("Authorization", "Bearer " + apiKey)
+                                  .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                                  .build();
 
-                        if (respMap.get("error") != null) {
-                          log.error(
-                              "Wiki generation failed for node {}: {}",
+                          java.net.http.HttpResponse<String> resp =
+                              client.send(
+                                  request, java.net.http.HttpResponse.BodyHandlers.ofString());
+                          Map<String, Object> respMap =
+                              mapper.readValue(
+                                  resp.body(),
+                                  new com.fasterxml.jackson.core.type.TypeReference<
+                                      Map<String, Object>>() {});
+
+                          if (respMap.get("error") != null) {
+                            log.error(
+                                "Wiki generation failed for node {} (attempt {}): {}",
+                                node.get("name"),
+                                attempt,
+                                respMap.get("error"));
+                            break;
+                          }
+
+                          String outputText = "";
+                          java.util.List<Map<String, Object>> choices =
+                              (java.util.List<Map<String, Object>>) respMap.get("choices");
+                          if (choices != null && !choices.isEmpty()) {
+                            Map<String, Object> message =
+                                (Map<String, Object>) choices.get(0).get("message");
+                            if (message != null) {
+                              outputText = (String) message.get("content");
+                            }
+                          }
+
+                          String cleaned =
+                              outputText
+                                  .trim()
+                                  .replaceAll("^```json\\s*", "")
+                                  .replaceAll("^```\\s*", "")
+                                  .replaceAll("\\s*```$", "");
+
+                          StructuredWikiPage candidatePage = null;
+                          try {
+                            candidatePage = mapper.readValue(cleaned, StructuredWikiPage.class);
+                          } catch (Exception parseE) {
+                            log.warn(
+                                "Attempt {}/{}: JSON parsing failed for node {}: {}",
+                                attempt,
+                                maxAttempts,
+                                node.get("name"),
+                                parseE.getMessage());
+                          }
+
+                          // 순수 검증기 호출 (LLM/DB 접근 없음)
+                          com.aimsgraph.ingest.validator.ValidationResult valResult =
+                              wikiPageValidator.validate(candidatePage, availableIdSet);
+
+                          if (valResult.valid()) {
+                            validPage = valResult.sanitizedPage();
+                            if (!valResult.errors().isEmpty()) {
+                              log.info(
+                                  "Node {} auto-sanitized: {}",
+                                  node.get("name"),
+                                  valResult.errors());
+                            }
+                            break; // 검증 통과!
+                          }
+
+                          log.warn(
+                              "Attempt {}/{} failed validation for node {}: {}",
+                              attempt,
+                              maxAttempts,
                               node.get("name"),
-                              respMap.get("error"));
-                          return;
-                        }
+                              valResult.errors());
 
-                        String outputText = "";
-                        java.util.List<Map<String, Object>> choices =
-                            (java.util.List<Map<String, Object>>) respMap.get("choices");
-                        if (choices != null && !choices.isEmpty()) {
-                          Map<String, Object> message =
-                              (Map<String, Object>) choices.get(0).get("message");
-                          if (message != null) {
-                            outputText = (String) message.get("content");
+                          if (attempt < maxAttempts) {
+                            String feedback =
+                                valResult.buildFeedbackPrompt(
+                                    candidatePage != null
+                                        ? candidatePage.title()
+                                        : (String) node.get("name"),
+                                    candidatePage != null
+                                        ? candidatePage.id()
+                                        : (String) node.get("id"));
+                            messages.add(Map.of("role", "assistant", "content", outputText));
+                            messages.add(Map.of("role", "user", "content", feedback));
+                          } else {
+                            log.error(
+                                "Node {} failed validation after {} attempts. REJECTING wiki creation to prevent data corruption. Errors: {}",
+                                node.get("name"),
+                                maxAttempts,
+                                valResult.errors());
                           }
                         }
 
-                        String cleaned =
-                            outputText
-                                .trim()
-                                .replaceAll("^```json\\s*", "")
-                                .replaceAll("^```\\s*", "")
-                                .replaceAll("\\s*```$", "");
+                        // 3회 모두 실패 시 persistence 금지 (오염 방지)
+                        if (validPage == null) {
+                          log.warn("Skipping persistence for rejected node: {}", node.get("name"));
+                          return;
+                        }
 
-                        StructuredWikiPage page =
-                            mapper.readValue(cleaned, StructuredWikiPage.class);
-
-                        if (page != null && page.id() != null && !page.id().isBlank()) {
+                        StructuredWikiPage page = validPage;
+                        if (page.id() != null && !page.id().isBlank()) {
                           java.util.List<String> actualLinks =
                               edgeMap.getOrDefault(page.id(), new java.util.ArrayList<>());
                           java.util.List<String> validRelatedConcepts =
@@ -504,6 +609,8 @@ public class LlmService {
                           sb.append("created_at: ")
                               .append(java.time.LocalDate.now().toString())
                               .append("\n");
+                          sb.append("source_supported: true\n");
+                          sb.append("general_knowledge_supplemented: true\n");
                           if (page.tags() != null && !page.tags().isEmpty()) {
                             sb.append("tags:\n");
                             for (String tag : page.tags()) {
@@ -537,13 +644,25 @@ public class LlmService {
                               String existingContent =
                                   java.nio.file.Files.readString(
                                       filePath, java.nio.charset.StandardCharsets.UTF_8);
+                              java.nio.file.attribute.FileTime lastModifiedTime =
+                                  java.nio.file.Files.getLastModifiedTime(filePath);
+                              String existingDate =
+                                  lastModifiedTime
+                                      .toInstant()
+                                      .atZone(java.time.ZoneId.systemDefault())
+                                      .toLocalDate()
+                                      .toString();
+                              String newDate = java.time.LocalDate.now().toString();
+
                               String mergedContent =
                                   mergeWikiContent(
                                       existingContent,
                                       sb.toString(),
                                       page.title(),
                                       workspaceId,
-                                      modelName);
+                                      modelName,
+                                      existingDate,
+                                      newDate);
                               java.nio.file.Files.writeString(
                                   filePath, mergedContent, java.nio.charset.StandardCharsets.UTF_8);
                               log.info("Merged and refined existing wiki page: {}", filename);
@@ -589,41 +708,123 @@ public class LlmService {
   // ---------------------------------------------------------
   // LLM WIKI PATTERN: Intelligent Merge & Refine Engine
   // ---------------------------------------------------------
-  private String mergeWikiContent(
+  public String mergeWikiContent(
       String existingContent,
       String newContent,
       String title,
       String workspaceId,
-      String modelName) {
-    try {
-      String mergePrompt =
-          "You are a wiki editor for a Zettelkasten Second Brain system.\n\n"
-              + "Below are TWO versions of a wiki page about \""
-              + title
-              + "\".\n"
-              + "Your task is to MERGE them into a single, cohesive, well-structured markdown document.\n\n"
-              + "RULES:\n"
-              + "1. Combine all unique information from both versions. Remove duplicates.\n"
-              + "2. If there are contradictions, keep the NEWER information and note the change.\n"
-              + "3. Maintain the standard wiki structure: YAML frontmatter, ## 정의, ## 핵심 구성 요소, ## 동작 원리, ## 장점과 트레이드오프, ## 실전 적용 사례, ## 관련 개념들.\n"
-              + "4. Output ONLY the final merged markdown. No explanations or commentary.\n"
-              + "5. ALL text must be in Korean. Cross-references use [[english-slug]] format.\n\n"
-              + "=== EXISTING VERSION ===\n"
-              + existingContent
-              + "\n\n"
-              + "=== NEW VERSION ===\n"
-              + newContent;
+      String modelName,
+      String existingDate,
+      String newDate) {
+    int maxAttempts = 3; // 총 3 calls (최초 1회 + 재시도 2회)
+    String currentPrompt =
+        "You are an expert wiki editor for a Zettelkasten Second Brain system.\n\n"
+            + "Below are TWO versions of a wiki page about \""
+            + title
+            + "\".\n"
+            + "Your task is to MERGE them into ONE cohesive, consolidated wiki document.\n\n"
+            + "MERGE & SYNTHESIS RULES:\n"
+            + "1. Preserve all unique, factual, and useful information from both versions.\n"
+            + "2. Remove redundant explanations and duplicated facts. Prefer concise synthesis over repetitive preservation.\n"
+            + "3. Do not simply concatenate the two documents. Reorganize content to flow logically as a single unified page.\n"
+            + "4. Do NOT increase document length merely by appending information. Consolidate overlapping concepts.\n"
+            + "5. CONTRADICTION & TEMPORAL CHANGE HANDLING:\n"
+            + "   - Compare the version dates (Existing: "
+            + existingDate
+            + ", New: "
+            + newDate
+            + ").\n"
+            + "   - Determine whether differences represent a temporal change/evolution, contextual variation, or factual contradiction.\n"
+            + "   - If the difference is a clear temporal evolution (e.g. newer version updates an architecture, tool version, or project status), reflect the updated state as the current reality while explicitly preserving what specific legacy version or technology was replaced (e.g. explicitly state both the previous version like 'Java 17' and previous architecture like '스레드 풀') in the background/history.\n"
+            + "   - If the contradiction represents divergent architectural perspectives (e.g. strong consistency vs high availability tradeoffs), explicitly preserve both viewpoints without arbitrarily choosing one.\n"
+            + "   - Never silently overwrite an existing factual claim without evaluating temporal and contextual validity.\n"
+            + "6. KNOWLEDGE INTEGRITY:\n"
+            + "   - Do not introduce new unverified project-specific facts.\n"
+            + "   - Do not invent new cross-reference IDs. Only keep valid `[[english-slug]]` links.\n"
+            + "7. DOCUMENT STRUCTURE:\n"
+            + "   - YAML frontmatter (preserve and merge tags, aliases, provenance fields)\n"
+            + "   - Preserve the document's own section headings and natural flow, consolidating duplicate sections\n"
+            + "   - Adapt the section structure naturally if new information introduces new aspects\n"
+            + "   - ## 관련 개념들 (keep merged `[[english-slug]]` links)\n"
+            + "8. Output ONLY the final merged markdown. No explanations or commentary.\n"
+            + "9. ALL text must be in Korean. Cross-references use `[[english-slug]]` format.\n\n"
+            + "=== EXISTING VERSION (Last Modified: "
+            + existingDate
+            + ") ===\n"
+            + existingContent
+            + "\n\n"
+            + "=== NEW VERSION (Generated: "
+            + newDate
+            + ") ===\n"
+            + newContent;
 
-      ChatModel model =
-          getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
-      String merged = model.chat(mergePrompt);
-      if (merged != null && !merged.isBlank()) {
-        return merged.trim();
+    ChatModel model = getOrCreateModel(workspaceId, modelName != null ? modelName : "gpt-4o-mini");
+    String feedback = "";
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        String promptToSend = currentPrompt;
+        if (!feedback.isBlank()) {
+          promptToSend +=
+              "\n\n[PREVIOUS ATTEMPT VALIDATION FAILURE - PLEASE FIX THE FOLLOWING ISSUES]:\n"
+                  + feedback;
+        }
+
+        String merged = model.chat(promptToSend);
+        if (merged != null && !merged.isBlank()) {
+          String cleaned =
+              merged
+                  .trim()
+                  .replaceAll("^```markdown\\s*", "")
+                  .replaceAll("^```\\s*", "")
+                  .replaceAll("\\s*```$", "");
+
+          if (wikiPageValidator != null) {
+            String fallbackId =
+                title.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+            if (fallbackId.isBlank()) fallbackId = "wiki-concept";
+            var valResult =
+                wikiPageValidator.validateMarkdownDocument(cleaned, fallbackId, title, null);
+            if (valResult.valid()) {
+              log.info(
+                  "Merge succeeded and passed validation on attempt {}/{} for '{}'",
+                  attempt,
+                  maxAttempts,
+                  title);
+              return cleaned;
+            } else {
+              log.warn(
+                  "Merge attempt {}/{} failed validation for '{}': {}",
+                  attempt,
+                  maxAttempts,
+                  title,
+                  valResult.errors());
+              if (attempt < maxAttempts) {
+                feedback = valResult.buildFeedbackPrompt(title, fallbackId);
+                continue;
+              }
+            }
+          } else {
+            return cleaned;
+          }
+        }
+      } catch (Exception e) {
+        log.warn(
+            "Merge call attempt {}/{} failed for '{}': {}",
+            attempt,
+            maxAttempts,
+            title,
+            e.getMessage());
       }
-    } catch (Exception e) {
-      log.warn("Merge failed, falling back to new content. Error: {}", e.getMessage());
     }
-    return newContent;
+
+    // 3회 시도 모두 실패 시 안전 Fallback: 기존 문서를 온전히 보존하고 Append/신규 덮어쓰기 차단
+    log.error(
+        "Merge for '{}' failed validation after {} attempts. FALLBACK: Preserving existing wiki"
+            + " content to prevent corruption.",
+        title,
+        maxAttempts);
+    return existingContent;
   }
 
   // ---------------------------------------------------------
@@ -666,14 +867,20 @@ public class LlmService {
               java.util.regex.Pattern.compile("type:\\s*(.*)").matcher(content);
           if (typeMatcher.find()) pageType = typeMatcher.group(1).trim();
 
-          // Extract first meaningful sentence as summary
+          // Extract summary from frontmatter or first meaningful sentence
           String summary = "-";
-          java.util.regex.Matcher defMatcher =
-              java.util.regex.Pattern.compile("## 정의\\s*\\n+\\s*(.+)").matcher(content);
-          if (defMatcher.find()) {
-            summary = defMatcher.group(1).trim();
-            if (summary.length() > 80) summary = summary.substring(0, 77) + "...";
+          java.util.regex.Matcher sumMatcher =
+              java.util.regex.Pattern.compile("summary:\\s*(.*)").matcher(content);
+          if (sumMatcher.find() && !sumMatcher.group(1).trim().isBlank()) {
+            summary = sumMatcher.group(1).trim();
+          } else {
+            java.util.regex.Matcher firstHeaderMatcher =
+                java.util.regex.Pattern.compile("## [^\\n]+\\s*\\n+\\s*(.+)").matcher(content);
+            if (firstHeaderMatcher.find()) {
+              summary = firstHeaderMatcher.group(1).trim();
+            }
           }
+          if (summary.length() > 80) summary = summary.substring(0, 77) + "...";
 
           indexBuilder
               .append("| [[")
@@ -728,13 +935,16 @@ public class LlmService {
   void saveGraphToNeo4j(Map<String, Object> graphData, String workspaceId) {
     if (graphData == null) return;
 
+    java.util.Set<String> validNodeIds = new java.util.HashSet<>();
     List<Map<String, Object>> nodes = (List<Map<String, Object>>) graphData.get("nodes");
     if (nodes != null) {
       for (Map<String, Object> node : nodes) {
         String id = (String) node.get("id");
         if (id == null || id.isBlank()) continue;
+        String normalizedId = id.trim().toLowerCase();
+        validNodeIds.add(normalizedId);
         String title = (String) node.get("name");
-        if (title == null) title = id;
+        if (title == null) title = normalizedId;
 
         String createNodeCypher =
             "MERGE (c:Concept {name: $name, workspaceId: $workspaceId}) "
@@ -742,7 +952,7 @@ public class LlmService {
                 + "ON MATCH SET c.title = $title, c.updatedAt = datetime()";
         neo4jClient
             .query(createNodeCypher)
-            .bind(id)
+            .bind(normalizedId)
             .to("name")
             .bind(workspaceId)
             .to("workspaceId")
@@ -752,37 +962,180 @@ public class LlmService {
       }
     }
 
+    java.util.regex.Pattern slugPattern =
+        java.util.regex.Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
+
     List<Map<String, Object>> links = (List<Map<String, Object>>) graphData.get("links");
     if (links != null) {
+      java.util.Set<String> processedEdges = new java.util.HashSet<>();
       for (Map<String, Object> link : links) {
         String source = (String) link.get("source");
         String target = (String) link.get("target");
         if (source == null || source.isBlank() || target == null || target.isBlank()) continue;
 
-        String relType = (String) link.get("label");
-        if (relType == null || relType.isBlank()) {
-          relType = "RELATES_TO";
+        String normSource = source.trim().toLowerCase();
+        String normTarget = target.trim().toLowerCase();
+
+        // 1. 자기참조 차단
+        if (normSource.equalsIgnoreCase(normTarget)) {
+          log.warn(
+              "Self-reference LLM edge rejected in workspace {}: source and target are identical ('{}'). Edge skipped.",
+              workspaceId,
+              normSource);
+          continue;
+        }
+
+        // 2. Slug 포맷 검증
+        if (!slugPattern.matcher(normSource).matches()
+            || !slugPattern.matcher(normTarget).matches()) {
+          log.warn(
+              "Invalid slug format in LLM edge in workspace {}: source='{}', target='{}'. Edge skipped.",
+              workspaceId,
+              normSource,
+              normTarget);
+          continue;
+        }
+
+        // 3. Phantom Node 방어 (nodes에 실존하지 않는 노드 연결 차단)
+        if (!validNodeIds.contains(normSource) || !validNodeIds.contains(normTarget)) {
+          log.warn(
+              "Phantom node edge rejected in workspace {}: source '{}' or target '{}' does not exist in workspace nodes. Edge skipped.",
+              workspaceId,
+              normSource,
+              normTarget);
+          continue;
+        }
+
+        // 4. 중복 엣지 방지 (인메모리 de-duplication)
+        String edgeKey = normSource + "->" + normTarget;
+        if (!processedEdges.add(edgeKey)) {
+          continue;
+        }
+
+        String relLabel = (String) link.get("label");
+        if (relLabel == null || relLabel.isBlank()) {
+          relLabel = "RELATES_TO";
         } else {
-          relType = relType.toUpperCase().replaceAll("[^A-Z_]", "");
-          if (relType.isEmpty()) relType = "RELATES_TO";
+          relLabel = relLabel.toUpperCase().replaceAll("[^A-Z_]", "");
+          if (relLabel.isEmpty()) relLabel = "RELATES_TO";
         }
 
         String linkCypher =
-            "MERGE (c:Concept {name: $name, workspaceId: $workspaceId}) "
-                + "MERGE (l:Concept {name: $link, workspaceId: $workspaceId}) "
-                + "MERGE (c)-[:"
-                + relType
-                + "]->(l)";
+            "MERGE (c:Concept {name: $source, workspaceId: $workspaceId}) "
+                + "MERGE (l:Concept {name: $target, workspaceId: $workspaceId}) "
+                + "MERGE (c)-[r:REFERENCES]->(l) "
+                + "ON CREATE SET r.relationSource = 'LLM_INFERRED', "
+                + "              r.sources = ['LLM_INFERRED'], "
+                + "              r.label = $label, "
+                + "              r.createdAt = datetime(), "
+                + "              r.updatedAt = datetime() "
+                + "ON MATCH SET r.sources = CASE WHEN 'LLM_INFERRED' IN coalesce(r.sources, [coalesce(r.relationSource, 'LLM_INFERRED')]) "
+                + "                             THEN coalesce(r.sources, [coalesce(r.relationSource, 'LLM_INFERRED')]) "
+                + "                             ELSE coalesce(r.sources, [coalesce(r.relationSource, 'LLM_INFERRED')]) + 'LLM_INFERRED' END, "
+                + "                 r.label = coalesce(r.label, $label), "
+                + "                 r.updatedAt = datetime()";
+
         neo4jClient
             .query(linkCypher)
-            .bind(source)
-            .to("name")
-            .bind(target)
-            .to("link")
+            .bind(normSource)
+            .to("source")
+            .bind(normTarget)
+            .to("target")
             .bind(workspaceId)
             .to("workspaceId")
+            .bind(relLabel)
+            .to("label")
             .run();
       }
+    }
+  }
+
+  public void syncWikiLinksToNeo4j(String workspaceId) {
+    try {
+      java.nio.file.Path wikiDir =
+          java.nio.file.Paths.get(wikiBaseDir, workspaceId, "wiki", "concepts");
+      if (!java.nio.file.Files.exists(wikiDir)) return;
+
+      java.util.regex.Pattern slugPattern =
+          java.util.regex.Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
+      java.util.regex.Pattern linkPattern =
+          java.util.regex.Pattern.compile("\\[\\[([a-zA-Z0-9_-]+)\\]\\]");
+
+      try (var stream = java.nio.file.Files.list(wikiDir)) {
+        List<java.nio.file.Path> files = stream.filter(p -> p.toString().endsWith(".md")).toList();
+
+        // [추가 1] 현재 워크스페이스의 실제 유효 Concept ID만 엄격 수집
+        java.util.Set<String> allConceptIds =
+            files.stream()
+                .map(p -> p.getFileName().toString().replace(".md", "").trim().toLowerCase())
+                .filter(id -> slugPattern.matcher(id).matches())
+                .collect(java.util.stream.Collectors.toSet());
+
+        for (java.nio.file.Path file : files) {
+          String sourceId = file.getFileName().toString().replace(".md", "").trim().toLowerCase();
+          if (!slugPattern.matcher(sourceId).matches()) continue;
+
+          String content =
+              java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8);
+
+          java.util.Set<String> targetIds = new java.util.HashSet<>();
+
+          // 명시적 [[slug]] 크로스 레퍼런스 링크만 파싱 (contains() 단순 매칭 완전 제거!)
+          java.util.regex.Matcher m = linkPattern.matcher(content);
+          while (m.find()) {
+            String targetId = m.group(1).toLowerCase().trim();
+
+            // 자기참조 차단
+            if (targetId.equalsIgnoreCase(sourceId)) {
+              continue;
+            }
+
+            // [추가 2] UNKNOWN_REFERENCE 방어: 대상이 allConceptIds에 없으면 Phantom Node 생성 차단 및 경고
+            if (!allConceptIds.contains(targetId)) {
+              log.warn(
+                  "Phantom node wiki reference rejected in workspace {}: target '{}' from source '{}' does not exist in workspace concepts. Edge skipped.",
+                  workspaceId,
+                  targetId,
+                  sourceId);
+              continue;
+            }
+
+            targetIds.add(targetId);
+          }
+
+          // [추가 3] 단일 [:REFERENCES] 엣지에 EXPLICIT_WIKI_LINK provenance 누적 (중복 생성 차단)
+          for (String targetId : targetIds) {
+            String linkCypher =
+                "MERGE (c:Concept {name: $source, workspaceId: $workspaceId}) "
+                    + "MERGE (t:Concept {name: $target, workspaceId: $workspaceId}) "
+                    + "MERGE (c)-[r:REFERENCES]->(t) "
+                    + "ON CREATE SET r.relationSource = 'EXPLICIT_WIKI_LINK', "
+                    + "              r.sources = ['EXPLICIT_WIKI_LINK'], "
+                    + "              r.label = 'REFERENCES', "
+                    + "              r.createdAt = datetime(), "
+                    + "              r.updatedAt = datetime() "
+                    + "ON MATCH SET r.sources = CASE WHEN 'EXPLICIT_WIKI_LINK' IN coalesce(r.sources, [coalesce(r.relationSource, 'EXPLICIT_WIKI_LINK')]) "
+                    + "                             THEN coalesce(r.sources, [coalesce(r.relationSource, 'EXPLICIT_WIKI_LINK')]) "
+                    + "                             ELSE coalesce(r.sources, [coalesce(r.relationSource, 'EXPLICIT_WIKI_LINK')]) + 'EXPLICIT_WIKI_LINK' END, "
+                    + "                 r.updatedAt = datetime()";
+
+            neo4jClient
+                .query(linkCypher)
+                .bind(sourceId)
+                .to("source")
+                .bind(targetId)
+                .to("target")
+                .bind(workspaceId)
+                .to("workspaceId")
+                .run();
+          }
+        }
+      }
+      log.info(
+          "Synchronized validated wiki cross-reference links into Neo4j graph for workspace: {}",
+          workspaceId);
+    } catch (Exception e) {
+      log.warn("Failed to sync wiki links to Neo4j: {}", e.getMessage());
     }
   }
 
@@ -1066,13 +1419,17 @@ public class LlmService {
 
   interface ConceptExtractor {
     @dev.langchain4j.service.SystemMessage(
-        "You are a Second Brain Zettelkasten assistant. "
-            + "Analyze the following text and extract ONLY core concepts that deserve their own dedicated wiki page. "
-            + "FILTERING RULES: "
-            + "1) EXCLUDE proper nouns that are merely mentioned once (e.g. a person's name, a product name used as an example). "
-            + "2) EXCLUDE trivial keywords or jargon that cannot sustain a standalone explanation page. "
-            + "3) INCLUDE only concepts where you can write at least a full paragraph defining what it is, how it works, and why it matters. "
-            + "4) Aim for 5-15 high-quality concepts rather than 20+ shallow ones.")
+        "You are a Second Brain Zettelkasten concept extraction agent. "
+            + "Analyze the following text and extract ONLY core concepts that are genuinely supported by the source "
+            + "and deserve their own dedicated wiki page. "
+            + "EXTRACTION & FILTERING RULES: "
+            + "1) There is NO required target range or minimum number of concepts. Prefer fewer high-confidence concepts over filling a quota. "
+            + "2) As a guideline, return approximately 3-15 concepts when the source contains enough information density, but return fewer when fewer concepts are genuinely supported. "
+            + "3) Exclude incidental proper nouns and one-time mentions. "
+            + "4) Include a proper noun ONLY when the source meaningfully explains its role, mechanism, architecture, usage, or significance. "
+            + "5) Exclude trivial keywords, fleeting terms, or jargon that cannot sustain a standalone explanation page. "
+            + "6) Every extracted concept must be substantively supported by the source text. Never invent concepts merely to satisfy a count. "
+            + "7) Use lowercase english-slug-format with hyphens for all concept IDs (e.g. 'event-driven-architecture').")
     ExtractedConceptsResponse extract(@dev.langchain4j.service.UserMessage String content);
   }
 
@@ -1082,12 +1439,21 @@ public class LlmService {
             + "Your sole job is to read the given document(s), identify their core knowledge structure, "
             + "and output a single strictly validated JSON knowledge graph that UNIFIES all documents. "
             + "CRITICAL EXTRACTION RULES: "
-            + "1) Only extract concepts that are SUBSTANTIVELY discussed in the source — not merely mentioned in passing. "
-            + "2) A concept must have enough context in the source to write a meaningful wiki page (definition + explanation). "
-            + "3) Do NOT create nodes for: example project names (e.g. 'FeedbackPulse'), one-off tool mentions, file names, or UI element names unless they are the MAIN TOPIC. "
-            + "4) Use english-slug-format for all node IDs (e.g. 'event-driven-architecture', not '1' or 'EDA'). "
-            + "5) Aim for 5-15 high-quality nodes rather than 20+ shallow ones. "
-            + "6) You never hallucinate IDs.")
+            + "1) There is NO required target range or minimum number of concepts. Prefer fewer high-confidence concepts over filling a quota. "
+            + "2) As a guideline, return approximately 3-15 concepts when the source contains enough information density, but return fewer when fewer concepts are genuinely supported. "
+            + "3) Only extract concepts that are SUBSTANTIVELY discussed in the source — not merely mentioned in passing. "
+            + "4) Exclude incidental proper nouns and one-time mentions. "
+            + "5) Include a proper noun ONLY when the source meaningfully explains its role, mechanism, architecture, usage, or significance. "
+            + "6) Do NOT create nodes for: example project names, one-off tool mentions, file names, or UI element names unless they are the MAIN TOPIC. "
+            + "7) Use lowercase english-slug-format with hyphens for all node IDs (e.g. 'event-driven-architecture'). "
+            + "8) You never hallucinate IDs. "
+            + "9) RELATIONSHIP & LINK RULES (PRECISION OVER DENSITY): "
+            + "Only create a link when the relationship between two concepts is explicitly supported by the source content or by a clear, well-established technical relationship directly relevant to the concept. "
+            + "Allowed relationship types for `label` include: 'DEPENDENCY' (A depends on B), 'COMPOSITION' (A contains B), 'IMPLEMENTATION' (A implements/uses B), 'DIRECT_INTERACTION' (A interacts with B), 'EXPLICIT_REFERENCE' (A references B). "
+            + "DO NOT create links merely because: the concepts belong to the same broad technology domain, they are commonly used together, one concept appears as an example, their names appear in the same document, or they could theoretically be used together. "
+            + "If no sufficiently strong relationship exists between concepts, return an empty `links: []` array. "
+            + "An isolated node with no links is a valid, normal, and expected result. "
+            + "Never invent a relationship merely to avoid an empty links array. Precision is strictly more important than graph connectivity.")
     KnowledgeGraphResponse extract(@dev.langchain4j.service.UserMessage String userPrompt);
   }
 }

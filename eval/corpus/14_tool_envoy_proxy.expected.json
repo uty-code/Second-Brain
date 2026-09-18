@@ -1,0 +1,10 @@
+{
+  "id": "14_tool_envoy_proxy",
+  "category": "tool_intro",
+  "expectedConcepts": ["envoy-proxy", "sidecar-pattern", "service-mesh"],
+  "forbiddenConcepts": ["nginx-plus", "traefik", "haproxy"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 2,
+  "maxConcepts": 4,
+  "keyFacts": ["사이드카 모델 배치", "L7 프록시 및 mTLS", "동적 xDS API"]
+}

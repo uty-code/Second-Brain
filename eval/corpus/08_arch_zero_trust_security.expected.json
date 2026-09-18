@@ -1,0 +1,10 @@
+{
+  "id": "08_arch_zero_trust_security",
+  "category": "deep_arch",
+  "expectedConcepts": ["zero-trust", "least-privilege", "micro-segmentation"],
+  "forbiddenConcepts": ["bitcoin", "cryptocurrency", "nft"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["절대 신뢰하지 말고 항상 검증", "최소 권한 원칙", "침해 가정 및 마이크로세그멘테이션"]
+}

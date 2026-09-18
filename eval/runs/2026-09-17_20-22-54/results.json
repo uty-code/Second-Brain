@@ -1,0 +1,692 @@
+[ {
+  "corpusId" : "01_short_blog_docker",
+  "category" : "short_blog",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "docker", "container" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "docker",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "container",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "02_short_blog_http2",
+  "category" : "short_blog",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "http2", "multiplexing" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "http2",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "multiplexing",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "03_short_blog_jwt",
+  "category" : "short_blog",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "json-web-token", "stateless-authentication" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "json-web-token",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "stateless-authentication",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "04_short_blog_connection_pool",
+  "category" : "short_blog",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "database-connection-pool", "hikaricp" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "database-connection-pool",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "hikaricp",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "05_arch_event_driven",
+  "category" : "deep_arch",
+  "extractedConceptCount" : 4,
+  "expectedConceptsFound" : [ "event-driven-architecture", "event-broker", "loose-coupling", "eventual-consistency" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "event-driven-architecture",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "event-broker",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "loose-coupling",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "eventual-consistency",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "06_arch_cqrs_saga",
+  "category" : "deep_arch",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "cqrs", "saga-pattern", "compensating-transaction" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "cqrs",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "saga-pattern",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "compensating-transaction",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "07_arch_transactional_outbox",
+  "category" : "deep_arch",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "transactional-outbox-pattern", "dual-write-problem", "at-least-once-delivery" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "transactional-outbox-pattern",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "dual-write-problem",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "at-least-once-delivery",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "08_arch_zero_trust_security",
+  "category" : "deep_arch",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "zero-trust", "least-privilege", "micro-segmentation" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "zero-trust",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "least-privilege",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "micro-segmentation",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "09_code_spring_security_filter",
+  "category" : "code_heavy",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "spring-security", "once-per-request-filter", "security-context-holder" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "spring-security",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "once-per-request-filter",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "security-context-holder",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "10_code_kafka_consumer_batch",
+  "category" : "code_heavy",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "spring-kafka", "batch-listener", "manual-commit" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "spring-kafka",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "batch-listener",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "manual-commit",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "11_code_mybatis_dynamic_sql",
+  "category" : "code_heavy",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "mybatis", "dynamic-sql" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "mybatis",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "dynamic-sql",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "12_code_redis_distributed_lock",
+  "category" : "code_heavy",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "distributed-lock", "redisson", "pub-sub-lock" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "distributed-lock",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "redisson",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "pub-sub-lock",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "13_tool_redis_streams",
+  "category" : "tool_intro",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "redis-streams", "consumer-group" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "redis-streams",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "consumer-group",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "14_tool_envoy_proxy",
+  "category" : "tool_intro",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "envoy-proxy", "sidecar-pattern", "service-mesh" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "envoy-proxy",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "sidecar-pattern",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "service-mesh",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "15_tool_neo4j_graph_db",
+  "category" : "tool_intro",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "neo4j", "cypher-query-language", "index-free-adjacency" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "neo4j",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "cypher-query-language",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "index-free-adjacency",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "16_tool_apache_zookeeper",
+  "category" : "tool_intro",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "apache-zookeeper", "distributed-coordination", "leader-election" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "apache-zookeeper",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "distributed-coordination",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "leader-election",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "17_mixed_react_postgres_k8s",
+  "category" : "mixed_technologies",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "react", "postgresql", "kubernetes" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "react",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "postgresql",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "kubernetes",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "18_mixed_grpc_rest_graphql",
+  "category" : "mixed_technologies",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "rest-api", "grpc", "graphql" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "rest-api",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "grpc",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "graphql",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "19_mixed_elasticsearch_redis_kafka",
+  "category" : "mixed_technologies",
+  "extractedConceptCount" : 3,
+  "expectedConceptsFound" : [ "apache-kafka", "redis", "elasticsearch" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "apache-kafka",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "redis",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "elasticsearch",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "20_sparse_single_sentence",
+  "category" : "extremely_short",
+  "extractedConceptCount" : 1,
+  "expectedConceptsFound" : [ "kubernetes" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "kubernetes",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "21_sparse_meeting_memo",
+  "category" : "extremely_short",
+  "extractedConceptCount" : 1,
+  "expectedConceptsFound" : [ "api-gateway" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "api-gateway",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "22_sparse_slack_snippet",
+  "category" : "extremely_short",
+  "extractedConceptCount" : 1,
+  "expectedConceptsFound" : [ "git-rebase" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "git-rebase",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "23_buzzword_agile_cloud_synergy",
+  "category" : "buzzword_dense",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "agile", "cloud-native" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "agile",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "cloud-native",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "24_buzzword_ai_driven_transformation",
+  "category" : "buzzword_dense",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "artificial-intelligence", "generative-ai" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "artificial-intelligence",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "generative-ai",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+}, {
+  "corpusId" : "25_buzzword_blockchain_web3_metaverse",
+  "category" : "buzzword_dense",
+  "extractedConceptCount" : 2,
+  "expectedConceptsFound" : [ "web3", "metaverse" ],
+  "forbiddenConceptsFound" : [ ],
+  "violations" : [ {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "web3",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  }, {
+    "violationType" : "KEY_FACT_ABSENCE_REVIEW",
+    "targetConcept" : "metaverse",
+    "evidenceSnippet" : "Wiki page does not clearly mention any of the expected key facts from the source.",
+    "provenance" : "MANUAL_REVIEW_REQUIRED",
+    "isWarningOnly" : true
+  } ],
+  "initialPass" : true,
+  "sanitizedPass" : false,
+  "retryPass" : false,
+  "rejected" : false,
+  "retryCount" : 0,
+  "validatorErrorCounts" : { }
+} ]

@@ -1,0 +1,10 @@
+{
+  "id": "07_arch_transactional_outbox",
+  "category": "deep_arch",
+  "expectedConcepts": ["transactional-outbox-pattern", "dual-write-problem", "at-least-once-delivery"],
+  "forbiddenConcepts": ["cassandra", "dynamodb", "mongodb"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["비즈니스 데이터와 아웃박스 테이블의 단일 트랜잭션 원자성", "이중 쓰기 문제 해결", "최소 1회 전송"]
+}

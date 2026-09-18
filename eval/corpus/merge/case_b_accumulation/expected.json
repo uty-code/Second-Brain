@@ -1,0 +1,14 @@
+{
+  "scenarioId": "case_b_accumulation",
+  "category": "accumulation",
+  "title": "HTTP/2 프로토콜",
+  "requiredFacts": [
+    "멀티플렉싱",
+    "HPACK",
+    "서버 푸시",
+    "우선순위",
+    "HOL"
+  ],
+  "minRetentionRate": 1.0,
+  "note": "기존 지식(멀티플렉싱, HPACK)과 신규 지식(서버 푸시, 우선순위, HOL)이 누락 없이 모두 보존(Loss 0)되어야 함"
+}

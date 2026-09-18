@@ -1,0 +1,10 @@
+{
+  "id": "19_mixed_elasticsearch_redis_kafka",
+  "category": "mixed_technologies",
+  "expectedConcepts": ["apache-kafka", "redis", "elasticsearch"],
+  "forbiddenConcepts": ["solr", "memcached", "rabbitmq"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 3,
+  "maxConcepts": 5,
+  "keyFacts": ["Kafka의 버퍼링 및 스트리밍", "Redis의 핫 데이터 캐싱", "Elasticsearch의 역색인 전문 검색"]
+}

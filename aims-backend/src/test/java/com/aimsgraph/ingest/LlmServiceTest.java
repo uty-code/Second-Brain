@@ -30,6 +30,8 @@ public class LlmServiceTest {
   @Mock private ChatModel chatModel;
 
   @Mock private Neo4jClient neo4jClient;
+  @Mock private NotionIngestService notionIngestService;
+  @Mock private com.aimsgraph.ingest.validator.WikiPageValidator wikiPageValidator;
 
   @InjectMocks private LlmService llmService;
 
@@ -120,10 +122,14 @@ public class LlmServiceTest {
   @Test
   void saveGraphToNeo4j_shouldExecuteMergeQueries() {
     // Given
-    Map<String, Object> node =
+    Map<String, Object> node1 =
         Map.of(
             "id", "concept-1",
             "name", "Concept 1");
+    Map<String, Object> node2 =
+        Map.of(
+            "id", "concept-2",
+            "name", "Concept 2");
     Map<String, Object> link =
         Map.of(
             "source", "concept-1",
@@ -131,7 +137,7 @@ public class LlmServiceTest {
             "label", "RELATES_TO");
     Map<String, Object> graphData =
         Map.of(
-            "nodes", List.of(node),
+            "nodes", List.of(node1, node2),
             "links", List.of(link));
 
     org.springframework.data.neo4j.core.Neo4jClient.UnboundRunnableSpec unboundRunnableSpec =
@@ -152,7 +158,46 @@ public class LlmServiceTest {
     // When
     llmService.saveGraphToNeo4j(graphData, "tenant-1");
 
-    // Then
-    org.mockito.Mockito.verify(neo4jClient, org.mockito.Mockito.atLeast(2)).query(anyString());
+    // Then: 2 nodes (MERGE) + 1 link (MERGE) = at least 3 queries
+    org.mockito.Mockito.verify(neo4jClient, org.mockito.Mockito.atLeast(3)).query(anyString());
+  }
+
+  @Test
+  void saveGraphToNeo4j_shouldRejectPhantomNodeEdge() {
+    // Given: concept-1 exists, but target concept-ghost does NOT exist in nodes
+    Map<String, Object> node1 =
+        Map.of(
+            "id", "concept-1",
+            "name", "Concept 1");
+    Map<String, Object> phantomLink =
+        Map.of(
+            "source", "concept-1",
+            "target", "concept-ghost",
+            "label", "RELATES_TO");
+    Map<String, Object> graphData =
+        Map.of(
+            "nodes", List.of(node1),
+            "links", List.of(phantomLink));
+
+    org.springframework.data.neo4j.core.Neo4jClient.UnboundRunnableSpec unboundRunnableSpec =
+        org.mockito.Mockito.mock(
+            org.springframework.data.neo4j.core.Neo4jClient.UnboundRunnableSpec.class);
+    org.springframework.data.neo4j.core.Neo4jClient.RunnableSpec runnableSpec =
+        org.mockito.Mockito.mock(
+            org.springframework.data.neo4j.core.Neo4jClient.RunnableSpec.class);
+    org.springframework.data.neo4j.core.Neo4jClient.OngoingBindSpec ongoingBindSpec =
+        org.mockito.Mockito.mock(
+            org.springframework.data.neo4j.core.Neo4jClient.OngoingBindSpec.class);
+
+    when(neo4jClient.query(anyString())).thenReturn(unboundRunnableSpec);
+    when(unboundRunnableSpec.bind(org.mockito.ArgumentMatchers.any())).thenReturn(ongoingBindSpec);
+    when(runnableSpec.bind(org.mockito.ArgumentMatchers.any())).thenReturn(ongoingBindSpec);
+    when(ongoingBindSpec.to(anyString())).thenReturn(runnableSpec);
+
+    // When
+    llmService.saveGraphToNeo4j(graphData, "tenant-1");
+
+    // Then: Only node1 should be created (1 query), phantom edge must be rejected (0 link query)
+    org.mockito.Mockito.verify(neo4jClient, org.mockito.Mockito.times(1)).query(anyString());
   }
 }

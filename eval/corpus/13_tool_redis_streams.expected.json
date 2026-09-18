@@ -1,0 +1,10 @@
+{
+  "id": "13_tool_redis_streams",
+  "category": "tool_intro",
+  "expectedConcepts": ["redis-streams", "consumer-group"],
+  "forbiddenConcepts": ["rabbitmq", "pulsar", "sqs"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 4,
+  "keyFacts": ["Append-Only Log", "Consumer Group과 XREADGROUP", "XACK를 통한 수신 확인"]
+}

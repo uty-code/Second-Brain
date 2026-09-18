@@ -1,0 +1,79 @@
+{
+  "totalCases" : 5,
+  "runId" : "merge_2026-09-17_20-23-54",
+  "passedCases" : 5,
+  "cases" : [ {
+    "scenarioId" : "case_a_dedup",
+    "category" : "deduplication",
+    "status" : "PASS",
+    "metrics" : {
+      "expansionRatio" : 1.43,
+      "mergedLength" : 1074,
+      "existingLength" : 751,
+      "missingRequiredFacts" : [ ],
+      "duplicateRatio" : 0.0
+    },
+    "reasons" : [ "동일/유사 문장 중복 비율(0.0)이 자동화 회귀 임계값(0.15) 이하로 안정적임", "문서 팽창 배율(1.430093209054594)이 상한선(1.6) 이하로 통제됨", "핵심 사실([브로커, 파티션, 분산])이 모두 보존됨" ],
+    "manualReviewNotes" : [ "[Manual Review 후보] 문장 기계적 중복 외에 의미상 중복(브로커와 파티션 설명 융합도)은 사람이 최종 정성 검토 권장" ],
+    "pass" : true
+  }, {
+    "scenarioId" : "case_b_accumulation",
+    "category" : "accumulation",
+    "status" : "PASS",
+    "metrics" : {
+      "missingFacts" : [ ],
+      "retentionRate" : 1.0,
+      "retainedFacts" : [ "멀티플렉싱", "HPACK", "서버 푸시", "우선순위", "HOL" ],
+      "informationLoss" : 0,
+      "expectedFactsCount" : 5,
+      "retainedFactsCount" : 5
+    },
+    "reasons" : [ "기존 지식과 신규 지식 전체(5개)가 정보 손실(Loss 0) 없이 100% 보존됨" ],
+    "manualReviewNotes" : [ ],
+    "pass" : true
+  }, {
+    "scenarioId" : "case_c_temporal",
+    "category" : "temporal_change",
+    "status" : "PASS",
+    "metrics" : {
+      "currentFactsMissing" : [ ],
+      "currentFactsFound" : [ "Java 21", "가상 스레드" ],
+      "forbiddenPhrasesDetected" : [ ],
+      "historyFactsMissing" : [ "Java 17" ],
+      "historyFactsFound" : [ "스레드 풀" ]
+    },
+    "reasons" : [ "최신 상태 사실([Java 21, 가상 스레드])이 현재 운영 상태로 정상 반영됨", "과거 레거시 이력([스레드 풀])이 역사적 맥락으로 온전히 보존됨", "과거 레거시 상태가 현재 운영 중인 것처럼 오인 기술된 금지 구문(0건) 없음" ],
+    "manualReviewNotes" : [ ],
+    "pass" : true
+  }, {
+    "scenarioId" : "case_d_perspective",
+    "category" : "divergent_perspectives",
+    "status" : "PASS",
+    "metrics" : {
+      "perspectiveMatches" : {
+        "strong_consistency" : [ "강한 일관성", "ACID", "원자성", "2PC" ],
+        "high_availability" : [ "가용성", "최종 일관성", "Saga" ]
+      },
+      "missingRequiredFacts" : [ ]
+    },
+    "reasons" : [ "상충하는 설계 관점(강한 일관성 관점 및 가용성/장애 격리 관점)이 일방적 배제 없이 모두 공존/병기됨", "양대 패턴 핵심 개념([2PC, Saga])이 모두 보존됨" ],
+    "manualReviewNotes" : [ ],
+    "pass" : true
+  }, {
+    "scenarioId" : "case_e_bloat",
+    "category" : "bloat_prevention",
+    "status" : "PASS",
+    "metrics" : {
+      "finalLength" : 2385,
+      "initialLength" : 837,
+      "missingRequiredFacts" : [ ],
+      "duplicateRatio" : 0.0,
+      "lengthTrajectory" : [ 837, 971, 1094, 1229, 1402, 1573, 1768, 1904, 2071, 2242, 2385 ]
+    },
+    "reasons" : [ "10단계 연속 병합 후 최종 문서 길이(2385자)가 단순 Append 폭발(4,000~8,000자) 없이 통제 상한선(2500자) 이내로 압축 유지됨", "반복 문장 중복도(0.0)가 0.15 이하로 억제됨", "10단계 압축 과정에서도 필수 핵심 사실([Redis, 분산 락, Redisson, TTL])이 손실 없이 보존됨" ],
+    "manualReviewNotes" : [ ],
+    "pass" : true
+  } ],
+  "model" : "gpt-4o-mini",
+  "evaluatedAt" : "2026-09-17T20:25:19.278530600"
+}

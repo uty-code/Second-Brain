@@ -1,0 +1,10 @@
+{
+  "id": "10_code_kafka_consumer_batch",
+  "category": "code_heavy",
+  "expectedConcepts": ["spring-kafka", "batch-listener", "manual-commit"],
+  "forbiddenConcepts": ["rabbitmq", "activemq", "sqs"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스", "com.aimsgraph"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["KafkaListener 배치 수신", "Acknowledgment 수동 커밋", "네트워크/DB 오버헤드 절감"]
+}

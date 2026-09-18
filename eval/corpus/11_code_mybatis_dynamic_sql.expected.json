@@ -1,0 +1,10 @@
+{
+  "id": "11_code_mybatis_dynamic_sql",
+  "category": "code_heavy",
+  "expectedConcepts": ["mybatis", "dynamic-sql"],
+  "forbiddenConcepts": ["hibernate", "jpa", "prisma"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스", "com.aimsgraph"],
+  "minConcepts": 1,
+  "maxConcepts": 4,
+  "keyFacts": ["MyBatis XML 매퍼", "<where> 태그의 자동 AND 제거", "동적 조건 분기"]
+}

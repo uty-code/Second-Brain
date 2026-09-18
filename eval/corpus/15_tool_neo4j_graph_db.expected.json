@@ -1,0 +1,10 @@
+{
+  "id": "15_tool_neo4j_graph_db",
+  "category": "tool_intro",
+  "expectedConcepts": ["neo4j", "cypher-query-language", "index-free-adjacency"],
+  "forbiddenConcepts": ["arangodb", "orientdb", "janusgraph"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["노드와 관계 속성 기반 모델", "Index-free Adjacency를 통한 O(1) 순회", "선언형 Cypher 쿼리 언어"]
+}

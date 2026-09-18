@@ -1,0 +1,10 @@
+{
+  "id": "06_arch_cqrs_saga",
+  "category": "deep_arch",
+  "expectedConcepts": ["cqrs", "saga-pattern", "compensating-transaction"],
+  "forbiddenConcepts": ["blockchain", "proof-of-work", "graphql"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["명령과 조회 모델 분리", "로컬 트랜잭션 체인", "보상 트랜잭션을 통한 롤백"]
+}

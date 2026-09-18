@@ -1,0 +1,10 @@
+{
+  "id": "25_buzzword_blockchain_web3_metaverse",
+  "category": "buzzword_dense",
+  "expectedConcepts": ["web3", "metaverse"],
+  "forbiddenConcepts": ["utopia", "horizon", "great-journey", "new-horizon", "pioneer"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 0,
+  "maxConcepts": 2,
+  "keyFacts": ["웹3.0과 메타버스 언급"]
+}

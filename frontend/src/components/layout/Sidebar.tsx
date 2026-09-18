@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
-import { fetchWorkspaces, deleteWorkspaceData, createWorkspace, logoutUser, deleteAccount } from "@/services/api";
-import { FileText, Brain, User, Wrench, BookOpen, Lightbulb, Trash2, AlertTriangle, Plus, X, LogOut, MoreVertical } from "lucide-react";
+import { fetchWorkspaces, deleteWorkspaceData, createWorkspace, logoutUser, deleteAccount, exportWorkspace } from "@/services/api";
+import { FileText, Brain, User, Wrench, BookOpen, Lightbulb, Trash2, AlertTriangle, Plus, X, LogOut, MoreVertical, Download, Loader2 } from "lucide-react";
 
 const typeIcons: Record<string, React.ReactNode> = {
   concept: <Lightbulb className="w-3.5 h-3.5 text-zinc-400" />,
@@ -18,6 +18,7 @@ export function Sidebar() {
   const { graphData, selectedNodeId, setSelectedNodeId, clearGraphData, workspaces, setWorkspaces, currentWorkspaceId, setCurrentWorkspaceId, currentUser } = useAppStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newVaultName, setNewVaultName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -110,6 +111,19 @@ export function Sidebar() {
     }
   };
 
+  const handleExport = async () => {
+    if (!currentWorkspaceId || isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportWorkspace(currentWorkspaceId);
+    } catch (error: any) {
+      console.error("Export failed:", error);
+      alert(error?.message || "워크스페이스 내보내기에 실패했습니다.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleCreate = async () => {
     const trimmed = newVaultName.trim();
     if (!trimmed) return;
@@ -180,13 +194,27 @@ export function Sidebar() {
             <Plus className="w-4 h-4" />
           </button>
           {currentWorkspaceId && (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-zinc-500 hover:text-zinc-200 transition-colors shrink-0 ml-1"
-              title="데이터 전체 삭제"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <>
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="text-zinc-500 hover:text-zinc-200 transition-colors shrink-0 ml-1 disabled:opacity-50"
+                title="볼트 지식 및 그래프 Zip 내보내기"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-zinc-500 hover:text-zinc-200 transition-colors shrink-0 ml-1"
+                title="데이터 전체 삭제"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
         </div>
 

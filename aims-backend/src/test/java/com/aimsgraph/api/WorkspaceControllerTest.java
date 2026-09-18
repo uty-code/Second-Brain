@@ -24,6 +24,7 @@ public class WorkspaceControllerTest {
   @MockBean private com.aimsgraph.auth.JwtInterceptor jwtInterceptor;
 
   @MockBean private com.aimsgraph.auth.JwtUtil jwtUtil;
+  @MockBean private com.aimsgraph.ingest.LlmService llmService;
 
   @Test
   void listWorkspaces_Success() throws Exception {

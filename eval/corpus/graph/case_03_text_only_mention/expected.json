@@ -1,0 +1,8 @@
+{
+  "description": "Case 03: 본문에 타 개념 이름이 단순 언급됨 (contains 엣지 생성 금지)",
+  "expectedEdges": [],
+  "forbiddenEdges": [
+    ["redis-distributed-lock", "kubernetes-pod-scheduling"],
+    ["kubernetes-pod-scheduling", "redis-distributed-lock"]
+  ]
+}

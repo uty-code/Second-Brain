@@ -1,3 +1,228 @@
+## [2026-09-17] Wiki 문서 고정 섹션 구조 제거 & 범용 자율 구조 리팩터링 [완료됨]
+- **Goal:** 소프트웨어/IT 기술 문서에 편향되어 있던 5개 고정 섹션(`## 정의`, `## 핵심 구성 요소`, `## 동작 원리`, `## 장점과 트레이드오프`, `## 실전 적용 사례`) 강제를 제거하고, 수학·과학·역사·인문학·제품·인물 등 전 분야의 개념을 자연스럽게 처리할 수 있는 범용 Wiki 생성/검증 시스템으로 전환.
+- **Key Implementation Details:**
+  1. **Validator 책임 전환 (콘텐츠 구조 강제 ❌ -> 문서 무결성 검증 ⭕)**:
+     - `ErrorType`에서 `MISSING_SECTION`, `SECTION_TOO_SHORT` 영구 삭제.
+     - `BODY_EMPTY` 추가: Markdown 헤더/서식 기호 제외 후 실질적 텍스트가 전혀 없는 경우에만 Hard Fail 처리 (숫자 기반 길이 제한 배제).
+     - ID, Summary, Frontmatter, Placeholder, Cross-reference(`[[slug]]`), Self-reference 정제, Unknown reference 차단 등 핵심 무결성 검증은 100% 엄격 유지.
+  2. **LLM 생성 프롬프트(`generateWikiPages`) 범용화**:
+     - 고정 5섹션 강제 문구 제거 -> 개념 본질에 맞게 최소 2개 이상의 `##` 소제목으로 자율 구성하도록 가이드.
+     - IT 특화 일변도의 Few-shot을 다분야 유연 구조 예시로 교체.
+  3. **LLM 병합 엔진(`mergeWikiContent`) 및 카탈로그(`index.md`) 개편**:
+     - Merge 프롬프트에서 고정 5섹션 강제 제거 및 기존 문서의 자율적 섹션 흐름 보존 규칙 적용.
+     - `index.md` 요약 추출 시 `## 정의` 하드코딩 의존을 제거하고 Frontmatter `summary:` 우선 참조로 변경.
+  4. **테스트 스위트 전면 개편 & 100% 통과 검증**:
+     - `WikiPageValidatorTest`: 단일 섹션 문서, 헤더 없는 문서, 수학/과학 등 다분야 구조 통과 및 빈 본문 차단 테스트 추가.
+     - `WikiGenerationPipelineTest`, `HallucinationInspectorTest`, `KnowledgePipelineEvaluationTest`: 범용 자유 구조로 마이그레이션.
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/ErrorType.java`
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/WikiPageValidator.java`
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+  - `aims-backend/src/main/resources/few-shot-wiki-examples.json`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/validator/WikiPageValidatorTest.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/WikiGenerationPipelineTest.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/HallucinationInspectorTest.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/KnowledgePipelineEvaluationTest.java`
+  - `docs/WIKI_SCHEMA.md`
+  - `docs/updates.md`
+
+## [2026-09-17] Knowledge Graph 관계 생성 정밀도(Edge Precision) 고도화 & False Positive 차단 [완료됨]
+- **Goal:** 관계가 약하거나 전무한 개념 사이에 엣지가 무분별하게 생성되던 False Positive / Hairball(스파게티 그래프) 문제를 해결하고, 'Graph Density' 대신 **'Edge Precision'을 극대화**하는 정밀 관계 추출 및 다계층 방어 파이프라인 구축.
+- **Key Principles & Implementation:**
+  1. **`UnifiedGraphExtractor` 프롬프트 정밀화 (Rule 9)**:
+     - 과도한 연결 강제 문구(`"For every node, connect it..."`, `"NEVER return empty links"`) 완전 제거.
+     - 5대 명확한 기술적 관계(Dependency, Composition, Implementation, Direct Interaction, Explicit Reference)만 허용하고 단순 도메인 중복, 동시 출현, 잠재적 조합은 링크 생성 금지.
+     - 고립 노드(Isolated Node, `links: []`)를 정상적이고 기대되는 결과로 공식 수용.
+  2. **단순 문자열 매칭(`contains()`) 100% 원천 제거**:
+     - `syncWikiLinksToNeo4j`에서 본문 단어 부분 일치로 엣지를 자동 생성하던 Fallback 로직을 영구 삭제하여 텍스트 단순 언급에 따른 가짜 연결 차단.
+  3. **3대 추가 방어 가드레일 확립**:
+     - **[추가 1] 엄격한 `allConceptIds` 수집**: 현재 워크스페이스의 실제 유효 Concept ID(`^[a-z0-9]+(?:-[a-z0-9]+)*$` 규격)만 정확히 수집.
+     - **[추가 2] UNKNOWN_REFERENCE 이중 방어선**: 위키 계층(Validator Hard Error)과 그래프 영속 계층(Phantom Node 생성 원천 차단 및 WARN 로깅)으로 DB 오염 방어.
+     - **[추가 3] 단일 `[:REFERENCES]` 관계 및 Provenance(출처) 합성**: 동일한 `source -> target` 관계가 `LLM_INFERRED`와 `EXPLICIT_WIKI_LINK` 양쪽에서 발생해도 중복 엣지 생성을 차단하고 `r.sources` 배열로 출처를 누적 관리.
+  4. **False Positive 회귀 평가 Fixture (5대 케이스) 및 자동화 테스트 구축**:
+     - `eval/corpus/graph/` (`case_01_strong_relation`, `case_02_unrelated_domains`, `case_03_text_only_mention`, `case_04_explicit_wiki_link`, `case_05_isolated_nodes`)
+     - `GraphEdgePrecisionTest.java` (7개 시나리오 100% 통과).
+- **New Files:**
+  - `eval/corpus/graph/case_01_strong_relation/expected.json`
+  - `eval/corpus/graph/case_02_unrelated_domains/expected.json`
+  - `eval/corpus/graph/case_03_text_only_mention/expected.json`
+  - `eval/corpus/graph/case_04_explicit_wiki_link/expected.json`
+  - `eval/corpus/graph/case_05_isolated_nodes/expected.json`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/GraphEdgePrecisionTest.java`
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/LlmServiceTest.java`
+
+## [2026-09-17] 지식 그래프 노드 간 관계(Edge/Link) 미연결 버그 수정 & 위키 크로스 레퍼런스 자동 동기화 [완료됨]
+- **Goal:** 웹 UI에서 텍스트 업로드 후 지식 그래프 생성 시 노드(Concept)들은 정상 추출되나 노드 간의 선(Edge/Link)이 연결되지 않던 문제를 해결하고, Karpathy LLM Wiki 패턴의 핵심인 크로스 레퍼런스(`[[slug]]`) 자동 연결 및 자가 치유(Self-Healing) 파이프라인 구축.
+- **Root Cause Analysis:**
+  1. **지식 그래프 추출 프롬프트 관계 규칙 부재**: `UnifiedGraphExtractor` 프롬프트에 노드(Concept) 추출 규칙만 존재하고 관계(`links`) 추출 규칙이 명시되지 않아 LLM이 항상 `links: []`를 반환함.
+  2. **위키 마크다운 상호 링크 미강제**: 위키 본문 생성 시 다른 개념들을 `[[concept-slug]]` 형태로 링크하도록 프롬프트에서 강제하지 않아 본문 내 상호 연결이 텍스트로만 남아있었음.
+  3. **위키 마크다운-Neo4j 동기화 누락**: 생성된 위키 파일들의 `[[slug]]` 링크를 Neo4j 그래프의 엣지(`(c)-[:REFERENCES]->(t)`)로 동기화하는 영속 계층 로직이 없었음.
+- **Key Fixes & Implementation:**
+  1. **관계(Link) 추출 프롬프트 규칙 보강 (`UnifiedGraphExtractor`)**:
+     - `9) RELATIONSHIP & LINK RULES`: 유의미한 관계(`USES`, `SOLVES`, `INTEGRATES_WITH`, `MANAGES` 등)를 반드시 추출하도록 강제.
+  2. **위키 마크다운 본문 상호 연결 프롬프트 보강 (`generateWikiPages`)**:
+     - 원문 및 다른 추출 개념을 인용할 때 반드시 `[[english-slug]]` 위키 링크를 본문과 연관 개념 섹션에 삽입하도록 규칙 명시.
+  3. **Neo4j 크로스 레퍼런스 엣지 동기화 엔진 (`syncWikiLinksToNeo4j`)**:
+     - 위키 디렉토리의 모든 마크다운을 검사하여 `[[slug]]` 패턴 및 본문 내 타 개념 언급을 분석하고 Neo4j에 `[:REFERENCES]` 엣지로 일괄 동기화.
+  4. **그래프 API 자가 치유(Self-Healing) 로직 (`WorkspaceController.getWorkspaceGraph`)**:
+     - 그래프 조회 시 노드는 존재하나 링크가 비어있을 경우, 자동으로 `syncWikiLinksToNeo4j`를 호출하여 위키 마크다운 기반으로 관계를 즉각 복원/반환.
+  5. **기존 워크스페이스(`sewo1218_test`) 복원 완료**:
+     - 기존 5개 위키 문서에 크로스 레퍼런스 링크 반영 및 Neo4j 동기화 완료 (12개 엣지 정상 생성 확인).
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+  - `aims-backend/src/main/java/com/aimsgraph/api/WorkspaceController.java`
+  - `aims-backend/src/test/java/com/aimsgraph/api/WorkspaceControllerTest.java`
+  - `aims-backend/workspaces/sewo1218_test/wiki/concepts/*.md`
+
+## [2026-09-17] 지능형 병합 (Merge & Refine) 5대 난제 정량 회귀 평가 & 실전 라이브 검증 (3단계) [완료됨]
+- **Goal:** 지식 컴파일러의 핵심 생명선인 Intelligent Merge & Refine 엔진의 5대 핵심 실패 모드(중복 나열, 신규 정보 손실, 시간축 왜곡, 관점 편향 삭제, 10회 연속 문서 폭발)를 통제 코퍼스 및 정량 계약(`expected.json`, `evaluation.json`)을 기반으로 실시간 OpenAI API(`gpt-4o-mini`) 라이브 검증 수행.
+- **Key Principles & Implementation:**
+  1. **5대 검증 시나리오 및 정량 계약 체계 (`eval/corpus/merge/`)**:
+     - **Case A (Deduplication & Synthesis - Kafka)**: 단순 문장 반복(duplicateRatio=0.0 <= 0.15 threshold) 차단, 문서 팽창률 1.43배 통제, 핵심 지식 보존.
+     - **Case B (Incremental Accumulation - HTTP/2)**: 5대 핵심 사실(멀티플렉싱, HPACK, 서버 푸시, 우선순위, HOL) 누락 없이 100% 보존 (`retentionRate=1.0`, `informationLoss=0`).
+     - **Case C (Temporal Evolution & Correctness - Java 17 -> 21)**: Java 21 및 가상 스레드를 현재 운영 상태로 정상 반영하고, 이전 스레드 풀 구조를 역사적 배경으로 온전히 보존하며, 과거 상태가 현재인 양 기술된 왜곡 구문 0건 확인.
+     - **Case D (Divergent Perspectives & Trade-offs - 2PC vs Saga)**: 2PC vs Saga를 참/거짓 모순이 아닌 설계 트레이드오프로 정의하고, 강한 일관성(ACID) 관점과 가용성/장애 격리(High Availability) 관점을 자의적 삭제 없이 모두 공존/병기.
+     - **Case E (Bloat Prevention - Redis Lock 10회 연속 병합)**: 10단계 연속 점진 병합 시 단순 Append 폭발(4,000~8,000자)을 억제하고 이상적인 압축 곡선(`[837자 -> 981자 -> 1104자 -> ... -> 2414자]`)을 유지하며 2,500자 상한선 이내로 통제.
+  2. **Merge 엔진의 가드레일 체계 (`WikiPageValidator` 연결)**:
+     - `Merge LLM 호출 -> 마크다운 파싱 -> WikiPageValidator 검증 -> 피드백 재시도 -> 통과/보류`
+     - **최대 3회 시도 (총 3 calls: 최초 1회 + 재시도 2회)** 정책 엄수.
+     - 실제로 Case C, Case D 등에서 Summary 길이(30~80자) 초과 시 재시도 피드백 루프가 실시간으로 동작하여 2회차에 자동 교정 후 통과.
+     - **안전 Fallback (격리 원칙)**: 3회 시도 모두 실패 시 단순 덧붙이기(Append)를 금지하고, 기존 문서를 100% 보존(`return existingContent`)하여 지식 오염 차단.
+  3. **정량적 판정 지표 및 `evaluation.json` 영구 아카이빙**:
+     - `MergeQualityInspector`를 통해 정량 지표 산출.
+     - `eval/runs/merge_{timestamp}/` 하위에 모든 원본/병합 문서와 함께 `evaluation.json`, `merge_eval_report.md` 영구 저장.
+     - `eval/reports/merge_report_latest.md` 최신화.
+- **New Files:**
+  - `eval/corpus/merge/case_a_dedup/` (existing.md, input.md, expected.json)
+  - `eval/corpus/merge/case_b_accumulation/` (existing.md, input.md, expected.json)
+  - `eval/corpus/merge/case_c_temporal/` (existing.md, input.md, expected.json)
+  - `eval/corpus/merge/case_d_perspective/` (existing.md, input.md, expected.json)
+  - `eval/corpus/merge/case_e_bloat/` (existing.md, inputs/step_01~10.md, expected.json)
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/MergeExpectedMetadata.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/MergeEvaluationResult.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/MergeQualityInspector.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/WikiMergeQualityEvaluationTest.java`
+  - `eval/reports/merge_report_latest.md`
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/WikiPageValidator.java`
+
+## [2026-09-17] 통제 코퍼스 25종 기반 환각/품질 검증 & 실패 사례 진단 프레임워크 구축 (2단계) [완료됨]
+- **Goal:** 프롬프트의 무분별한 비대화를 지양하고, 25개 통제 코퍼스(Test Corpus)와 Ground Truth 메타데이터(`.expected.json`)를 기반으로 환각(Hallucination), 가짜 수치/코드 날조, 억지 개념 추출을 재현 가능하게 진단하는 평가 자동화 체계 구축.
+- **Key Principles & Implementation:**
+  1. **통제된 25개 코퍼스 및 Ground Truth 세트 (`eval/corpus/`)**:
+     - 7개 다채로운 입력군 구성: Short Blog(4), Deep Arch Spec(4), Code-Heavy(4), Tool Intro(4), Mixed Technologies(3), Extremely Short / Sparse(3), Buzzword Dense(3).
+     - 각 문서마다 대응하는 `.expected.json`을 작성하여 `expectedConcepts`(기준선), `forbiddenConcepts`(금지 개념), `forbiddenProjectTerms`(사칭 방지), `min/maxConcepts`, `keyFacts` 명시.
+  2. **지식 출처 4단계 분류 체계 (`KnowledgeProvenance`)**:
+     - 원문에 없다고 무조건 환각으로 단정하지 않고 보편 지식 보충을 고려:
+       - `SOURCE_SUPPORTED`: 원문에서 직접 뒷받침됨
+       - `UNSUPPORTED_OR_FABRICATED`: 금지어, 사칭 패키지, 날조된 벤치마크 (Hard Failure)
+       - `GENERAL_KNOWLEDGE_CANDIDATE`: 널리 알려진 표준 패턴/기술 설명
+       - `MANUAL_REVIEW_REQUIRED`: 자동 판정이 모호하여 사람의 맥락 검토가 필요한 항목
+  3. **환각 인스펙터 (`HallucinationInspector`)**:
+     - 원문과 위키 생성 결과, 기대 메타데이터 간 다각적 대조.
+     - 금지 개념 추출(`FORBIDDEN_CONCEPT_EXTRACTED`), 프로젝트 사칭(`PROJECT_FABRICATION`), 가짜 벤치마크(`FABRICATED_BENCHMARK_METRIC`), 단문 과잉 추출 경고(`DENSITY_OVER_EXTRACTION_WARNING`).
+  4. **실행 결과 아카이빙 및 최신 리포트 자동화 (`EvaluationRunner`)**:
+     - 실행 이력을 `eval/runs/{timestamp}/` 하위(`raw/`, `concepts/`, `wiki/`, `results.json`, `eval_report.md`)에 영구 보존하여 프롬프트 버전 간 비교 토대 마련.
+     - `eval/reports/eval_report_latest.md`에 카테고리별 Retry 지수 표, 실패 모드 상세 문맥, 수동 검토 후보군을 체계적으로 출력.
+- **New Files:**
+  - `eval/corpus/01_*.md` ~ `25_*.md` 및 `.expected.json` (총 50개 파일)
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/CorpusExpectedMetadata.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/KnowledgeProvenance.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/HallucinationViolation.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/EvaluationResult.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/HallucinationInspector.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/HallucinationInspectorTest.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/EvaluationRunner.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/eval/KnowledgePipelineEvaluationTest.java`
+  - `eval/reports/eval_report_latest.md`
+
+## [2026-09-17] LLM 출력 검증기 (WikiPageValidator) & 재시도 파이프라인 구축 [완료됨]
+- **Goal:** LLM 응답 수신과 DB/파일시스템 영속화 사이에 독립적인 검증 계층을 구축하여 지식 그래프 무결성을 보장하고, 3회 재시도(Retry with Feedback) 루프를 통해 불량 데이터 저장을 원천 차단.
+- **Key Policies & Implementation:**
+  1. **순수 검증 계층 (`WikiPageValidator`)**:
+     - LLM 호출 및 DB 저장을 일절 배제하고 `StructuredWikiPage`에 대한 순수 판단 및 정제만 담당.
+     - **ID 규격**: `^[a-z0-9]+(?:-[a-z0-9]+)*$` 영문 소문자-하이픈 규격 엄격 검증.
+     - **Summary 길이 계약**: 공백 제거 기준 `30 <= summary.trim().length() <= 80` 엄격 검증.
+     - **5대 필수 섹션**: `## 정의`, `## 핵심 구성 요소`, `## 동작 원리`, `## 장점과 트레이드오프`, `## 실전 적용 사례` 존재 및 본문 20자 이상(빈 섹션 방지) 검증.
+     - **Placeholder 감지**: `...`, `(내용 없음)`, `TODO`, `TBD`, `[작성 예정]` 차단.
+     - **Cross-Reference 무결성 (dangling link)**: `availableConceptIds`에 없는 ID는 절대 텍스트(`**...**`)로 숨기지 않고 `UNKNOWN_REFERENCE` Hard Fail 및 Retry 요구.
+     - **Auto-Sanitize 범위 제한**: 오직 자기참조(`[[current-id]]` -> 볼드 텍스트)만 안전하게 치환.
+     - **Frontmatter 검증**: 필수 메타데이터(`title`, `type`, `created_at`, `source_supported`, `general_knowledge_supplemented`) 파싱 검증.
+  2. **재시도 및 격리 파이프라인 (`LlmService`)**:
+     - 최초 1회 + 최대 2회 재시도(총 최대 3회 호출).
+     - 검증 실패 시 발생한 구체적 에러 목록만 LLM 피드백 프롬프트로 주입하여 정밀 교정 유도.
+     - 3회 모두 실패 시 파일 미생성 및 Neo4j 저장 생략(Reject)하여 데이터 오염 원천 차단.
+  3. **TDD 및 통합 테스트**:
+     - 단위 및 경계값 테스트 (`WikiPageValidatorTest`): 29자/30자/80자/81자, 19자/20자, dangling link, self-reference, invalid slug 등.
+     - 파이프라인 통합 테스트 (`WikiGenerationPipelineTest`):
+       - Case 1 (1차 실패 -> 2차 성공, 총 2회 호출)
+       - Case 2 (1차/2차 실패 -> 3차 성공, 총 3회 호출)
+       - Case 3 (3회 모두 실패 -> Reject 미생성, 총 3회 호출)
+       - Case 4 (자기참조 Auto-Sanitize -> 1회 호출 즉시 저장)
+- **New Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/ErrorType.java`
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/ValidationError.java`
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/ValidationResult.java`
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/validator/WikiPageValidator.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/validator/WikiPageValidatorTest.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/WikiGenerationPipelineTest.java`
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/LlmServiceTest.java`
+  - `aims-backend/src/test/java/com/aimsgraph/ingest/LlmExtractionQualityTest.java`
+
+## [2026-09-17] 지식 컴파일러 프롬프트 2차 정밀 고도화 (자기참조 차단 & 시간축 메타데이터 주입) [완료됨]
+- **Goal:** ChatGPT 2차 정밀 피드백을 반영하여 지식 추출, 위키 본문 생성, 지능형 병합 전반의 경계 조건과 파이프라인 검증 구조 고도화.
+- **Key Improvements:**
+  1. **개념 추출 (1단계)**:
+     - Quota 상충 해소: `There is NO required target range or minimum number of concepts.` 및 정보 밀도에 따른 가이드라인 명시 (`return approximately 3-15 concepts when the source contains enough information density, but return fewer when fewer concepts are genuinely supported`).
+  2. **위키 본문 생성 (2단계)**:
+     - 기술 언급 규칙 합리화: 무조건적 차단 대신 무관한 기술 유입을 차단하고 보편 지식 설명용 기술 언급은 허용하되 사용자 프로젝트의 것으로 날조하는 것만 엄격히 금지.
+     - 자기 참조(Self-Reference) 원천 차단: 프롬프트 규칙에 금지 조항 추가 및 코드 레벨에서 생성 대상 노드 ID를 `AVAILABLE CONCEPT IDS` 목록에서 동적으로 배제하여 `[[자기자신]]` 링크 생성 방지.
+     - Frontmatter 출처 수준(Provenance) 명시: `source_supported: true`, `general_knowledge_supplemented: true` 메타데이터 자동 주입.
+  3. **지능형 병합 (3단계)**:
+     - "authoritative" 지시 완화: `ONE cohesive, consolidated wiki document`로 수정하여 무분별한 덮어쓰기 방지.
+     - 시간축(Temporal change) 메타데이터 주입: 파일의 최종 수정 일시(Existing)와 현재 일시(New)를 추출하여 프롬프트 헤더(`=== EXISTING VERSION (Last Modified: ...) ===`, `=== NEW VERSION (Generated: ...) ===`)에 주입함으로써 시간 흐름에 따른 진화/상태 갱신을 정확히 판별하도록 개선.
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+
+## [2026-09-17] 지식 컴파일러 프롬프트 전면 개편 (신뢰성 & 지능형 병합 고도화) [완료됨]
+- **Goal:** ChatGPT 피드백을 기반으로 단순 요약이 아닌 신뢰할 수 있는 Zettelkasten Second Brain 구축을 위해 프롬프트 전면 개편.
+- **Key Improvements:**
+  1. **개념 추출 (ConceptExtractor / UnifiedGraphExtractor)**:
+     - 억지 개념 생성을 유발하던 하한선(quota) 제거: 최소 개수 제한 없이 원문 신뢰도 기반 추출 (`No minimum number of concepts`, 정보 밀도에 따라 3~15개 유동적 추출).
+     - 고유명사 필터링 정교화: 단순 1회성 언급은 제외하되, 원문에서 역할/아키텍처/중요성이 유의미하게 설명된 고유명사는 보존.
+  2. **위키 본문 생성 (Wiki Generation)**:
+     - KNOWLEDGE BOUNDARY 규칙 도입: 원문 기반 사실과 보편 엔지니어링 지식의 경계를 명확히 분리하여, 원문에 없는 가짜 프로젝트 아키텍처/코드/벤치마크 날조(Hallucination) 원천 차단.
+     - AVAILABLE CONCEPT IDS 주입: 생성 프롬프트에 실제 추출된 노드 ID 목록을 주입하여 가짜 크로스 레퍼런스 ID 생성 방지.
+  3. **지능형 병합 (Merge & Refine)**:
+     - `NEWER information wins` 규칙 폐기: 최신 정보가 무조건 옳다고 가정하지 않고, 모순 발생 시 시간적/맥락적 차이를 명시적으로 보존.
+     - 문서 비대화(Bloat) 방지: 단순 덧붙이기(concat)를 금지하고, 중복 표현 제거 및 핵심 지식 위주의 간결한 합성(Concise Synthesis) 강제.
+- **Modified Files:**
+  - `aims-backend/src/main/java/com/aimsgraph/ingest/LlmService.java`
+
+## [2026-09-17] 프론트엔드 워크스페이스 Zip 내보내기(Export) UI 연동 및 403 강제 로그아웃 버그 수정 [완료됨]
+- **Goal:** 백엔드에 구축되어 있던 워크스페이스 Zip 내보내기 API(`GET /api/v1/workspaces/{workspace_id}/export`)를 프론트엔드 사이드바 헤더에 연결하고, 내보내기 실패 시 로그인 창으로 강제 리다이렉트되던 안티패턴을 수정.
+- **Bug Fix & Improvement:**
+  - `frontend/src/services/api.ts`:
+    - `customFetch`의 자동 로그아웃 조건을 `401 || 403`에서 오직 `401`(세션 만료)로 한정하여, 단순 권한 불일치(403) 시 세션이 파기되지 않도록 분리.
+    - `exportWorkspace(workspaceId)` 함수에 백엔드 테넌트 검증에 필요한 `X-Workspace-ID` 헤더 및 `?workspaceId=` 쿼리 파라미터를 추가하여 `403 Workspace mismatch` 원천 방어.
+  - `frontend/src/components/layout/Sidebar.tsx`:
+    - 사이드바 헤더에 `Download` 및 `Loader2` 버튼 추가, 다운로드 중 비동기 로딩 스피너 및 에러 메시지 얼럿 연동.
+
+## [2026-09-17] LLM API 실시간 연결 진단 엔드포인트 및 라이브 테스트 구축 [완료됨]
+- **Goal:** 시스템에 주입된 LLM API 키(OpenAI 등)의 실제 동작 및 응답 수신 여부를 검증하기 위해, JUnit 라이브 연결 테스트와 인증 불필요 실시간 헬스체크 API 엔드포인트(`GET /api/v1/health/llm`)를 구현.
+- **New Files:**
+  - `LlmLiveConnectionTest.java`: 실제 OpenAI API와 핑퐁 통신을 수행하여 응답 소요 시간(Latency) 및 PING_OK 수신을 검증하는 라이브 테스트.
+  - `LlmHealthController.java`: 실시간 헬스체크 REST API (`/api/v1/health/llm`). 마스킹된 키 정보, 레이턴시, 모델 응답 반환.
+  - `LlmHealthControllerTest.java`: 컨트롤러 단위 테스트.
+- **Modified Files:**
+  - `SecurityConfig.java`: `/api/v1/health/**` 경로를 permitAll()에 등록하여 토큰 없이 즉시 진단 가능하도록 허용.
+  - `API_SPEC.md`: Health Check API 명세 추가.
+
 ## [2026-07-18] AI 규칙 세분화(Rules Partitioning) 및 스마트 AI 리뷰어 구현 [완료됨]
 - **Goal:** 프로젝트의 복잡성 증가에 대비하여 규칙 파일을 공통, 백엔드, 프론트엔드로 세분화하고, AI 리뷰어가 PR 변경 영역을 자동 감지해 해당 규칙 파일만 동적 주입하도록 튜닝하여 토큰 절약 및 검사 정확도 제고.
 - **Affected Files:**

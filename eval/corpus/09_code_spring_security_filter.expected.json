@@ -1,0 +1,10 @@
+{
+  "id": "09_code_spring_security_filter",
+  "category": "code_heavy",
+  "expectedConcepts": ["spring-security", "once-per-request-filter", "security-context-holder"],
+  "forbiddenConcepts": ["flask", "django", "passport-js"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스", "com.aimsgraph"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["OncePerRequestFilter 상속", "Authorization Bearer 헤더 검증", "SecurityContextHolder 인증 적재"]
+}

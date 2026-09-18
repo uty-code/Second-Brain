@@ -251,3 +251,30 @@ Spring Security 및 JWT 기반의 멀티유저 인증 API입니다.
 - `readWikiPage(page_path: String)`: 지정한 마크다운 위키 페이지 본문 내용을 조회 (호출 시 `ai_reading` 이벤트 발행).
 - `fileBackInsight(title: String, content: String)`: 에이전트가 도출한 통찰을 새로운 마크다운 파일로 영구 적재.
 - `listRecentChanges()`: 최근 위키 변동 기록 목록 조회.
+
+---
+
+## 8. Health Check API (시스템 진단)
+외부 인프라 및 핵심 AI 서비스 연결 상태를 확인하기 위한 진단 엔드포인트입니다. (인증 불필요)
+
+### 8.1 LLM 연결 진단 (LLM Health Check)
+- **`GET /api/v1/health/llm`**
+- **Query Parameters**:
+  - `model` (선택): 테스트 대상 모델명 (기본값: `gpt-4o-mini`)
+- **동작**: 시스템 환경변수(`OPENAI_API_KEY`) 주입 여부를 확인하고, 대상 모델에 핑 메시지를 전송하여 왕복 지연 시간(Latency) 및 실제 응답 수신 여부를 검증합니다.
+- **Response `200 OK`**:
+  ```json
+  {
+    "status": "UP",
+    "model": "gpt-4o-mini",
+    "apiKeyConfigured": true,
+    "maskedApiKey": "sk-proj...AtwA",
+    "latencyMs": 1685,
+    "reply": "LLM connection is healthy!",
+    "message": "LLM API connection verified successfully.",
+    "timestamp": 1789635256354
+  }
+  ```
+- **Response `503 Service Unavailable`**: API 키가 설정되지 않은 경우.
+- **Response `500 Internal Server Error`**: LLM API 호출 실패 또는 통신 에러 발생 시.
+

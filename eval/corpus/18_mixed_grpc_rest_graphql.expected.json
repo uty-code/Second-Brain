@@ -1,0 +1,10 @@
+{
+  "id": "18_mixed_grpc_rest_graphql",
+  "category": "mixed_technologies",
+  "expectedConcepts": ["rest-api", "grpc", "graphql"],
+  "forbiddenConcepts": ["soap", "xml-rpc", "thrift"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 3,
+  "maxConcepts": 5,
+  "keyFacts": ["REST 표준 HTTP 메서드", "gRPC 프로토콜 버퍼와 HTTP/2", "GraphQL의 오버페칭 해결"]
+}

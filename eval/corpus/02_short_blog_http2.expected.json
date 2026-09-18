@@ -1,0 +1,10 @@
+{
+  "id": "02_short_blog_http2",
+  "category": "short_blog",
+  "expectedConcepts": ["http2", "multiplexing"],
+  "forbiddenConcepts": ["quic", "http3", "udp"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 3,
+  "keyFacts": ["단일 TCP 연결", "멀티플렉싱", "헤더 압축 HPACK", "바이너리 프레이밍"]
+}

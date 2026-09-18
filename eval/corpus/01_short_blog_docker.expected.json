@@ -1,0 +1,10 @@
+{
+  "id": "01_short_blog_docker",
+  "category": "short_blog",
+  "expectedConcepts": ["docker", "container"],
+  "forbiddenConcepts": ["kubernetes", "docker-swarm", "helm"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 3,
+  "keyFacts": ["호스트 커널 공유", "독립된 패키지 격리", "환경 불일치 해결"]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "03_short_blog_jwt",
+  "category": "short_blog",
+  "expectedConcepts": ["json-web-token", "stateless-authentication"],
+  "forbiddenConcepts": ["oauth2", "saml", "kerberos"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 3,
+  "keyFacts": ["Header Payload Signature 3단 구성", "Stateless 인증", "서명 기반 위변조 검증"]
+}

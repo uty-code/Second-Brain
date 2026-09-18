@@ -1,0 +1,10 @@
+{
+  "id": "04_short_blog_connection_pool",
+  "category": "short_blog",
+  "expectedConcepts": ["database-connection-pool", "hikaricp"],
+  "forbiddenConcepts": ["orm", "jpa", "redis"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 3,
+  "keyFacts": ["커넥션 사전 생성 및 재사용", "TCP 핸드셰이크 오버헤드 절감"]
+}

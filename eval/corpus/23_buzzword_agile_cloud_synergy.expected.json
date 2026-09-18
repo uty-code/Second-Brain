@@ -1,0 +1,10 @@
+{
+  "id": "23_buzzword_agile_cloud_synergy",
+  "category": "buzzword_dense",
+  "expectedConcepts": ["agile", "cloud-native"],
+  "forbiddenConcepts": ["synergy", "mindset", "governance", "growth", "vision", "wave-of-innovation"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 0,
+  "maxConcepts": 2,
+  "keyFacts": ["애자일 문화와 클라우드 네이티브 언급"]
+}

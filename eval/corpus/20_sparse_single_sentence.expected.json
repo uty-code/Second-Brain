@@ -1,0 +1,10 @@
+{
+  "id": "20_sparse_single_sentence",
+  "category": "extremely_short",
+  "expectedConcepts": ["kubernetes"],
+  "forbiddenConcepts": ["docker", "helm", "istio", "prometheus"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 2,
+  "keyFacts": ["컨테이너 자동 배포 및 스케일링 플랫폼"]
+}

@@ -33,7 +33,12 @@ public class LlmExtractionQualityTest {
 
     // Create LlmService instance manually
     LlmService llmService =
-        new LlmService(workspaceService, credentialsService, neo4jClient, notionIngestService);
+        new LlmService(
+            workspaceService,
+            credentialsService,
+            neo4jClient,
+            notionIngestService,
+            new com.aimsgraph.ingest.validator.WikiPageValidator());
     ReflectionTestUtils.setField(
         llmService,
         "defaultApiKey",

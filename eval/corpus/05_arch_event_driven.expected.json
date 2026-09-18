@@ -1,0 +1,10 @@
+{
+  "id": "05_arch_event_driven",
+  "category": "deep_arch",
+  "expectedConcepts": ["event-driven-architecture", "event-broker", "loose-coupling", "eventual-consistency"],
+  "forbiddenConcepts": ["soap", "graphql", "websockets"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 3,
+  "maxConcepts": 6,
+  "keyFacts": ["상태 변화를 이벤트로 비동기 발행", "느슨한 결합", "최종 일관성"]
+}

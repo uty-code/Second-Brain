@@ -1,0 +1,15 @@
+{
+  "scenarioId": "case_a_dedup",
+  "category": "deduplication",
+  "title": "Apache Kafka 아키텍처",
+  "requiredFacts": [
+    "브로커",
+    "파티션",
+    "분산"
+  ],
+  "regressionThresholds": {
+    "maxDuplicateRatio": 0.15,
+    "maxExpansionRatio": 1.6
+  },
+  "note": "maxDuplicateRatio 0.15는 절대적 품질 기준이 아닌 단순 반복 문장/헤딩 급증을 잡는 자동화 회귀 threshold임. 의미적 합성은 수동 검토로 분리."
+}

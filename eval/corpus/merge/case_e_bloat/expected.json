@@ -1,0 +1,14 @@
+{
+  "scenarioId": "case_e_bloat",
+  "category": "bloat_prevention",
+  "title": "Redis 분산 락",
+  "maxFinalLength": 2500,
+  "maxDuplicateRatio": 0.15,
+  "requiredFacts": [
+    "Redis",
+    "분산 락",
+    "Redisson",
+    "TTL"
+  ],
+  "note": "2,500자는 절대적 품질 지표가 아닌 길이 통제 상한선이며, 10단계 매 스텝별 길이 추이(Length Trajectory)와 핵심 정보 보존 및 중복 억제율을 함께 추적"
+}

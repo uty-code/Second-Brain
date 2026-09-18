@@ -1,0 +1,8 @@
+{
+  "description": "Case 05: 관계 근거가 없는 독립 개념들 (고립 노드 links: [] 정상 판정)",
+  "expectedEdges": [],
+  "forbiddenEdges": [
+    ["concept-alpha", "concept-beta"],
+    ["concept-beta", "concept-alpha"]
+  ]
+}

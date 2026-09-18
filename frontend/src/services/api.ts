@@ -16,8 +16,8 @@ function getAuthHeader() {
 
 async function customFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetch(url, options);
-  if (response.status === 401 || response.status === 403) {
-    console.warn("Session expired or unauthorized. Performing auto-logout.");
+  if (response.status === 401) {
+    console.warn("Session expired (401). Performing auto-logout.");
     const store = useAppStore.getState();
     if (store.isLoggedIn) {
       store.setJwtToken(null);
@@ -379,3 +379,30 @@ export async function deleteAccount() {
   }
   return response.json();
 }
+
+export async function exportWorkspace(workspaceId: string): Promise<void> {
+  const response = await customFetch(
+    `${API_BASE_URL}/v1/workspaces/${encodeURIComponent(workspaceId)}/export?workspaceId=${encodeURIComponent(workspaceId)}`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": getAuthHeader(),
+        "X-Workspace-ID": workspaceId
+      }
+    }
+  );
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(errorText || "워크스페이스 내보내기에 실패했습니다.");
+  }
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `workspace-${workspaceId}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+

@@ -1,0 +1,21 @@
+{
+  "scenarioId": "case_c_temporal",
+  "category": "temporal_change",
+  "title": "백엔드 동시성 아키텍처",
+  "currentRequiredFacts": [
+    "Java 21",
+    "가상 스레드"
+  ],
+  "historicalFacts": [
+    "Java 17",
+    "스레드 풀"
+  ],
+  "forbiddenCurrentPhrases": [
+    "현재 Java 17",
+    "Java 17을 사용하고 있다",
+    "Java 17 기반으로 실행",
+    "현재 스레드 풀",
+    "스레드 풀을 통해 동시성을 처리"
+  ],
+  "note": "Java 21이 현재 상태로 반영되고 Java 17은 과거 이력으로 기술되어야 함. 2024년 상태가 현재 운영 상태인 양 기술되면 감지 및 차단"
+}

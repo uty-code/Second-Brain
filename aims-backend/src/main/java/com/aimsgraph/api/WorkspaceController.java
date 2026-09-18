@@ -27,6 +27,7 @@ public class WorkspaceController {
   private final Neo4jClient neo4jClient;
   private final ObjectMapper objectMapper;
   private final WorkspaceCredentialsService credentialsService;
+  private final com.aimsgraph.ingest.LlmService llmService;
 
   @org.springframework.beans.factory.annotation.Value("${wiki.base.dir:workspaces}")
   private String wikiBaseDir;
@@ -158,28 +159,35 @@ public class WorkspaceController {
             .collect(Collectors.toList());
 
     // 2. Fetch links from Neo4j
-    var links =
-        neo4jClient
-            .query(
-                "MATCH (n:Concept {workspaceId: $workspaceId})-[r]->(m:Concept {workspaceId: $workspaceId}) "
-                    + "RETURN n.name AS source, m.name AS target, type(r) AS label")
-            .bind(workspaceId)
-            .to("workspaceId")
-            .fetch()
-            .all()
-            .stream()
-            .map(
-                row ->
-                    Map.of(
-                        "source", row.get("source"),
-                        "target", row.get("target"),
-                        "label", row.get("label")))
-            .collect(Collectors.toList());
+    var links = fetchLinksFromNeo4j(workspaceId);
+    if (links.isEmpty() && !nodes.isEmpty()) {
+      llmService.syncWikiLinksToNeo4j(workspaceId);
+      links = fetchLinksFromNeo4j(workspaceId);
+    }
 
     return ResponseEntity.ok(
         Map.of(
             "nodes", nodes,
             "links", links));
+  }
+
+  private java.util.List<Map<String, Object>> fetchLinksFromNeo4j(String workspaceId) {
+    return neo4jClient
+        .query(
+            "MATCH (n:Concept {workspaceId: $workspaceId})-[r]->(m:Concept {workspaceId: $workspaceId}) "
+                + "RETURN n.name AS source, m.name AS target, type(r) AS label")
+        .bind(workspaceId)
+        .to("workspaceId")
+        .fetch()
+        .all()
+        .stream()
+        .map(
+            row ->
+                Map.<String, Object>of(
+                    "source", row.get("source"),
+                    "target", row.get("target"),
+                    "label", row.get("label")))
+        .collect(Collectors.toList());
   }
 
   @GetMapping(value = "/{workspace_id}/export", produces = "application/zip")

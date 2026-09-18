@@ -6,7 +6,7 @@ echo ===================================================
 echo [1/3] Stopping Java Backend processes (Port 8080)...
 echo ===================================================
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8080 ^| findstr LISTENING') do (
-    taskkill /f /pid %%a
+    taskkill /f /t /pid %%a
 )
 
 echo.
@@ -14,8 +14,9 @@ echo ===================================================
 echo [2/3] Stopping Node Frontend processes (Port 3000)...
 echo ===================================================
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') do (
-    taskkill /f /pid %%a
+    taskkill /f /t /pid %%a
 )
+taskkill /f /im node.exe >nul 2>&1
 
 echo.
 echo ===================================================

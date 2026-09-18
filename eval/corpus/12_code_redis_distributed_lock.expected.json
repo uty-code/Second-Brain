@@ -1,0 +1,10 @@
+{
+  "id": "12_code_redis_distributed_lock",
+  "category": "code_heavy",
+  "expectedConcepts": ["distributed-lock", "redisson", "pub-sub-lock"],
+  "forbiddenConcepts": ["zookeeper-curator", "etcd", "consul"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스", "com.aimsgraph"],
+  "minConcepts": 2,
+  "maxConcepts": 5,
+  "keyFacts": ["Redisson tryLock 타임아웃", "Watchdog 메커니즘", "Pub/Sub 기반 락 대기"]
+}

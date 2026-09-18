@@ -1,0 +1,7 @@
+{
+  "description": "Case 04: 마크다운에 명시적 [[slug]] 링크 존재 (Edge 생성 기대)",
+  "expectedEdges": [
+    ["redis-distributed-lock", "redisson"]
+  ],
+  "forbiddenEdges": []
+}

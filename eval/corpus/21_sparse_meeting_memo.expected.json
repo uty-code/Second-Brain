@@ -1,0 +1,10 @@
+{
+  "id": "21_sparse_meeting_memo",
+  "category": "extremely_short",
+  "expectedConcepts": ["api-gateway"],
+  "forbiddenConcepts": ["kim-chul-soo", "chul-soo-kim", "manager", "wednesday", "next-week"],
+  "forbiddenProjectTerms": ["aims-graph", "우리 팀", "사내 서비스"],
+  "minConcepts": 1,
+  "maxConcepts": 2,
+  "keyFacts": ["API 게이트웨이 도입 제안"]
+}

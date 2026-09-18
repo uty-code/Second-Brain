@@ -1,0 +1,8 @@
+{
+  "description": "Case 01: 명확하고 강력한 기술적 의존성 및 구현 관계 (Edge 생성 기대)",
+  "expectedEdges": [
+    ["spring-security", "jwt"],
+    ["redisson", "redis"]
+  ],
+  "forbiddenEdges": []
+}
