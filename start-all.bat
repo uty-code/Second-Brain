@@ -53,6 +53,12 @@ echo.
 echo ===================================================
 echo [3/3] Launching Frontend Development Server...
 echo ===================================================
+if not exist "..\frontend\node_modules\" (
+    echo [INFO] First run detected: Installing frontend dependencies (npm install)...
+    pushd "..\frontend"
+    call npm install
+    popd
+)
 start "AIMS Frontend" /D "..\frontend" cmd /k "npm run dev"
 
 echo.
