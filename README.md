@@ -38,50 +38,67 @@ graph TD
 
 ---
 
-## 🚀 Quick Start (1분 실행 가이드)
+## 🚀 Quick Start (실행 가이드)
 
-### 1. 인프라 컨테이너 기동
-Docker Compose로 Neo4j, Kafka, MSSQL, Redis를 일괄 실행합니다.
+### 사전 요구사항 (Prerequisites)
+- **Java 21** (JDK 21+)
+- **Docker Desktop** 실행 상태
+- 시스템 환경변수 `OPENAI_API_KEY` 설정
+
+---
+
+### 방법 A. 원클릭 실행 (Windows 추천)
+프로젝트 루트의 `start-all.bat`을 실행하면 Docker 컨테이너 기동, 포트 대기, 백엔드 및 프론트엔드가 일괄 실행됩니다.
+```cmd
+start-all.bat
+```
+
+### 방법 B. 단계별 수동 실행
+
+#### 1. 인프라 컨테이너 기동 (Docker Compose)
+MSSQL, Neo4j, Kafka, Redis를 백그라운드로 실행합니다:
 ```bash
+cd aims-backend
 docker-compose up -d
 ```
 
-### 2. 환경변수 확인
-로컬 시스템에 `OPENAI_API_KEY` 환경변수가 설정되어 있는지 확인합니다.
-
-### 3. 백엔드 서버 기동
+#### 2. 백엔드 서버 실행
 ```bash
-cd aims-backend
 ./gradlew bootRun
 ```
-> 서버가 정상적으로 기동되면 `http://localhost:8080` 포트에서 대기합니다.
+> 서버가 정상 기동되면 `http://localhost:8080` 포트에서 대기합니다.
 
 ---
 
 ## 📡 Core API Specification
 
-### 1) 워크스페이스 생성
+### 1) 시스템 및 LLM 연동 상태 헬스체크 (No Auth)
 ```bash
-curl -X POST http://localhost:8080/api/workspaces \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-second-brain"}'
+curl -X GET http://localhost:8080/api/v1/llm/health
 ```
 
-### 2) 지식 수집 및 위키 컴파일 (Ingestion)
+### 2) 사용자 등록 및 JWT 토큰 발급
+```bash
+# 1. 회원가입
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "tester", "password": "password123"}'
+
+# 2. 로그인 (토큰 획득)
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "tester", "password": "password123"}'
+```
+
+### 3) 지식 수집 및 위키 컴파일 (Ingestion)
 원문 텍스트를 주입하여 마크다운 위키 페이지와 Neo4j 노드/엣지를 자동 추출합니다.
 ```bash
-curl -X POST http://localhost:8080/api/ingest \
+curl -X POST http://localhost:8080/api/v1/ingest \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {JWT_TOKEN}" \
   -d '{
-    "workspaceId": "my-second-brain",
     "sourceText": "Kafka는 분산 이벤트 스트리밍 플랫폼이며, Zookeeper 또는 KRaft에 의존한다."
   }'
-```
-
-### 3) 지식 그래프 조회
-생성된 개념 노드와 관계를 Neo4j 그래프 데이터로 조회합니다.
-```bash
-curl -X GET http://localhost:8080/api/graph/my-second-brain
 ```
 
 ---
