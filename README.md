@@ -68,6 +68,14 @@ docker-compose up -d
 ```
 > 서버가 정상 기동되면 `http://localhost:8080` 포트에서 대기합니다.
 
+#### 3. 프론트엔드 웹 UI 실행 (새 터미널)
+```bash
+cd frontend
+npm install  # 최초 1회만 필요
+npm run dev
+```
+> 웹 브라우저에서 `http://localhost:3000`으로 접속하여 지식 위키 및 그래프 시각화 UI를 확인할 수 있습니다.
+
 ---
 
 ## 📡 Core API Specification
